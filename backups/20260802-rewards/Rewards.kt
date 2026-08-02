@@ -62,29 +62,6 @@ object Rewards {
             "Open Family Link: $familyLink"
     }
 
-    /**
-     * Send at most one parent-review notification per member and day. This is
-     * intentionally only a recommendation: Family Link remains the authority
-     * for changing device time, and a parent must approve it.
-     */
-    fun notifyEligible(ctx: Context, portalUrl: String): Int {
-        if (!Gotify.configured(ctx)) return 0
-        val day = fmt.format(Calendar.getInstance().time)
-        val prefs = ctx.getSharedPreferences("reward-notices", Context.MODE_PRIVATE)
-        var sent = 0
-        Members.all(ctx).forEach { member ->
-            val key = "$day|${member.id}"
-            if (prefs.getBoolean(key, false)) return@forEach
-            val preview = JSONObject(preview(ctx, member.id))
-            if (preview.optInt("bonusHours") <= 0) return@forEach
-            if (Gotify.send(ctx, "FamilyHub approval", approvalMessage(ctx, member.id, portalUrl), 7)) {
-                prefs.edit().putBoolean(key, true).apply()
-                sent++
-            }
-        }
-        return sent
-    }
-
     private fun hasDone(done: JSONArray, key: String, id: String, date: String): Boolean =
         (0 until done.length()).any {
             val d = done.getJSONObject(it)

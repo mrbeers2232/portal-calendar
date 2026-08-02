@@ -29,12 +29,6 @@ import android.os.PowerManager
 class KeepAliveService : Service() {
 
     private val handler = Handler(Looper.getMainLooper())
-    private val rewardCheck = object : Runnable {
-        override fun run() {
-            runCatching { Rewards.notifyEligible(this@KeepAliveService, portalUrl()) }
-            handler.postDelayed(this, 5 * 60_000)
-        }
-    }
     private val guard = object : Runnable {
         override fun run() {
             runCatching {
@@ -60,18 +54,12 @@ class KeepAliveService : Service() {
             .setContentTitle("Family Calendar idle screen is on")
             .build())
         handler.postDelayed(guard, 30_000)
-        handler.postDelayed(rewardCheck, 60_000)
     }
 
     override fun onDestroy() {
         handler.removeCallbacks(guard)
-        handler.removeCallbacks(rewardCheck)
         super.onDestroy()
     }
-
-    private fun portalUrl(): String = getSharedPreferences("config", MODE_PRIVATE)
-        .getString("portal_url", "http://192.168.0.122:8090")
-        .orEmpty().trim().trimEnd('/')
 
     private fun hasUsageAccess(): Boolean {
         val ops = getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
