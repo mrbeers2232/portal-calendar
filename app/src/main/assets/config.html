@@ -408,6 +408,15 @@
   </div>
 
   <div class="card" data-tab="settings">
+    <strong>Parent approvals (Gotify)</strong>
+    <div style="font-size:13px;color:#737983;margin:6px 0 8px;">Send routine and reward approvals to Juanita over the private Tailscale network.</div>
+    <input type="url" id="gotifyUrl" placeholder="http://portal-tailnet-name:8090" autocomplete="off">
+    <input type="password" id="gotifyToken" placeholder="Gotify application token (write-only)" autocomplete="off">
+    <div class="row2"><button class="ghost" onclick="saveGotify()">Save</button><button class="ghost" onclick="testGotify()">Send test</button></div>
+    <div id="gotifyMsg" class="msgline"></div>
+  </div>
+
+  <div class="card" data-tab="settings">
     <strong>Board tabs</strong>
     <div style="font-size:13px;color:#737983;margin:6px 0 10px;">Switch off what your family doesn't use — the tab disappears from the Portal.</div>
     <div id="featRow" style="display:flex;flex-direction:column;gap:10px;">
@@ -1575,6 +1584,16 @@ async function loadAi(){
   try { applyAi(await (await fetch('/api/ai')).json()); } catch(e){}
 }
 
+async function loadGotify(){
+  try { const s = await (await fetch('/api/gotify')).json(); document.getElementById('gotifyUrl').value = s.url || ''; } catch(e){}
+}
+async function saveGotify(){
+  try { const r = await fetch('/api/gotify',{method:'POST',body:JSON.stringify({url:document.getElementById('gotifyUrl').value,token:document.getElementById('gotifyToken').value})}); const b=await r.json(); if(!r.ok) throw new Error(b.error||'failed'); document.getElementById('gotifyToken').value=''; show('gotifyMsg','✓ Saved',true); } catch(e){ show('gotifyMsg',e.message,false); }
+}
+async function testGotify(){
+  try { const b=await (await fetch('/api/gotify/test',{method:'POST'})).json(); show('gotifyMsg',b.ok?'✓ Test sent':'Gotify is not configured or unreachable',b.ok); } catch(e){ show('gotifyMsg',e.message,false); }
+}
+
 async function aiPost(body, msgId){
   const r = await fetch('/api/ai', {method:'POST', body: JSON.stringify(body)});
   const data = await r.json();
@@ -2232,6 +2251,7 @@ loadWx();
 loadPin();
 loadLayout();
 loadAi();
+loadGotify();
 </script>
 </body>
 </html>

@@ -106,6 +106,15 @@ class ConfigServer(
             json(org.json.JSONObject().put("title", "FamilyHub approval")
                 .put("message", Rewards.approvalMessage(ctx, memberId, portalUrl)).toString())
         }
+        s.uri == "/api/gotify" && s.method == Method.GET ->
+            json("{\"configured\":${Gotify.configured(ctx)},\"url\":${jsonStr(Gotify.url(ctx))}}")
+        s.uri == "/api/gotify" && s.method == Method.POST -> {
+            val o = org.json.JSONObject(readBody(s))
+            Gotify.save(ctx, o.getString("url"), o.optString("token").takeIf { it.isNotBlank() })
+            json("{\"ok\":true}")
+        }
+        s.uri == "/api/gotify/test" && s.method == Method.POST ->
+            json("{\"ok\":${Gotify.send(ctx, "FamilyHub test", "Gotify is connected to PortalHub.", 5)}}")
         s.uri == "/api/meals" && s.method == Method.GET ->
             json(Meals.statusJson(ctx))
         s.uri == "/api/meals" && s.method == Method.POST ->
