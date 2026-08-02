@@ -98,6 +98,8 @@ class ConfigServer(
             else throw IllegalArgumentException("unknown history kind")
             json("{\"ok\":true}")
         }
+        s.uri == "/api/rewards" && s.method == Method.GET ->
+            json(Rewards.preview(ctx, s.parameters["memberId"]?.firstOrNull().orEmpty()))
         s.uri == "/api/meals" && s.method == Method.GET ->
             json(Meals.statusJson(ctx))
         s.uri == "/api/meals" && s.method == Method.POST ->
