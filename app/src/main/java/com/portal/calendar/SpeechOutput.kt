@@ -7,15 +7,27 @@ import java.util.Locale
 
 /** Speaks successful voice-command replies through the Portal's stock TTS engine. */
 class SpeechOutput(context: Context) {
+    private val appContext = context.applicationContext
     private var ready = false
     private var pending: String? = null
     private var tts: TextToSpeech? = null
+    private var triedDefaultEngine = false
 
     init {
-        val appContext = context.applicationContext
-        tts = TextToSpeech(appContext, { status ->
-            val engine = tts ?: return@TextToSpeech
-            if (status != TextToSpeech.SUCCESS) return@TextToSpeech
+        initialize(PORTAL_TTS_ENGINE)
+    }
+
+    private fun initialize(enginePackage: String?) {
+        val listener = TextToSpeech.OnInitListener { status ->
+            val engine = tts ?: return@OnInitListener
+            if (status != TextToSpeech.SUCCESS) {
+                if (!triedDefaultEngine) {
+                    triedDefaultEngine = true
+                    engine.shutdown()
+                    initialize(null)
+                }
+                return@OnInitListener
+            }
 
             engine.language = Locale.US
             engine.setSpeechRate(0.95f)
@@ -26,7 +38,9 @@ class SpeechOutput(context: Context) {
                 pending = null
                 speak(it)
             }
-        }, PORTAL_TTS_ENGINE)
+        }
+        tts = if (enginePackage == null) TextToSpeech(appContext, listener)
+        else TextToSpeech(appContext, listener, enginePackage)
     }
 
     fun speak(text: String) {
