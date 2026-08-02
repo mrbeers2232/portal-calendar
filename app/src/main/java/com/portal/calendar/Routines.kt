@@ -162,7 +162,8 @@ object Routines {
     }
 
     private fun prune(done: JSONArray) {
-        val cutoff = Calendar.getInstance().apply { add(Calendar.DAY_OF_MONTH, -14) }
+        // Keep a full year so parent review and reward streaks can span months.
+        val cutoff = Calendar.getInstance().apply { add(Calendar.DAY_OF_MONTH, -400) }
         val cut = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(cutoff.time)
         for (i in done.length() - 1 downTo 0)
             if (done.getJSONObject(i).optString("date") < cut) done.remove(i)
