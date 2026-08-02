@@ -88,6 +88,16 @@ class ConfigServer(
             json(Routines.statusJson(ctx))
         s.uri == "/api/routines" && s.method == Method.POST ->
             json(Routines.mutate(ctx, org.json.JSONObject(readBody(s))))
+        s.uri == "/api/history" && s.method == Method.GET ->
+            json(org.json.JSONObject().put("chores", org.json.JSONObject(Chores.historyJson(ctx)))
+                .put("routines", org.json.JSONObject(Routines.historyJson(ctx))).toString())
+        s.uri == "/api/history" && s.method == Method.POST -> {
+            val o = org.json.JSONObject(readBody(s))
+            val kind = o.getString("kind")
+            if (kind == "chore") Chores.mutate(ctx, o) else if (kind == "routine") Routines.mutate(ctx, o)
+            else throw IllegalArgumentException("unknown history kind")
+            json("{\"ok\":true}")
+        }
         s.uri == "/api/meals" && s.method == Method.GET ->
             json(Meals.statusJson(ctx))
         s.uri == "/api/meals" && s.method == Method.POST ->

@@ -71,6 +71,11 @@ object Routines {
             .toString()
     }
 
+    /** Full routine completion history for parent review and corrections. */
+    fun historyJson(ctx: Context): String = JSONObject()
+        .put("items", Data.readArray(ctx, FILE))
+        .put("completed", Data.readArray(ctx, DONE)).toString()
+
     fun mutate(ctx: Context, action: JSONObject): String {
         when (action.getString("action")) {
             "addItem" -> {
@@ -125,6 +130,19 @@ object Routines {
                         }
                     }
                     if (!removed) done.put(JSONObject().put("itemId", id).put("date", today))
+                    prune(done)
+                }
+            }
+            "setCompletion" -> {
+                val id = action.getString("itemId")
+                val date = action.getString("date")
+                val completed = action.optBoolean("completed")
+                Data.mutate(ctx, DONE) { done ->
+                    for (i in done.length() - 1 downTo 0) {
+                        val d = done.getJSONObject(i)
+                        if (d.optString("itemId") == id && d.optString("date") == date) done.remove(i)
+                    }
+                    if (completed) done.put(JSONObject().put("itemId", id).put("date", date))
                     prune(done)
                 }
             }
