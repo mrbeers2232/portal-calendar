@@ -141,6 +141,7 @@ class BoardController(private val baseCtx: Context) {
     private lateinit var voiceSub: TextView
     private lateinit var voiceBtn: TextView
     private val voice = VoiceInput()
+    private val speech = SpeechOutput(baseCtx)
     private val voiceExec = java.util.concurrent.Executors.newSingleThreadExecutor()
     @Volatile private var voiceBusy = false
 
@@ -286,7 +287,7 @@ class BoardController(private val baseCtx: Context) {
         App.instance.removeConfigListener(configListener)
         App.instance.removeDataListener(dataListener)
         if (App.instance.activeBoard === this) App.instance.activeBoard = null
-        runCatching { voice.stop(); voiceExec.shutdownNow() }
+        runCatching { voice.stop(); speech.shutdown(); voiceExec.shutdownNow() }
     }
 
     /** Returns true if an overlay was open and got closed (for Back handling). */
@@ -376,6 +377,7 @@ class BoardController(private val baseCtx: Context) {
                     App.instance.notifyDataChanged()
                     doSync() // surface a new event/item on the board right away
                     finishVoice("“$transcript”", reply)
+                    speech.speak(reply)
                 }
             } catch (e: Exception) {
                 post { finishVoice("Sorry — that didn't work", e.message ?: "Try again.") }
