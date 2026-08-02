@@ -47,6 +47,21 @@ object Rewards {
             .put("bonusHours", bonus).put("days", days).toString()
     }
 
+    /** Gotify-ready approval copy with links Juanita can tap from her phone. */
+    fun approvalMessage(ctx: Context, memberId: String, portalUrl: String): String {
+        val preview = JSONObject(preview(ctx, memberId))
+        val name = Members.byId(ctx, memberId)?.name ?: "Kaylee"
+        val hours = preview.optInt("bonusHours")
+        val streak = preview.optInt("streakDays")
+        val approve = portalUrl.trimEnd('/') + "/?approveMember=" + java.net.URLEncoder.encode(memberId, "UTF-8")
+        val familyLink = "https://families.google.com/"
+        return "${name} has completed her morning routine!\n" +
+            "Recommendation: add ${hours} hour${if (hours == 1) "" else "s"} of bonus time " +
+            "(${streak}-day streak).\n\n" +
+            "Approve in PortalHub: $approve\n" +
+            "Open Family Link: $familyLink"
+    }
+
     private fun hasDone(done: JSONArray, key: String, id: String, date: String): Boolean =
         (0 until done.length()).any {
             val d = done.getJSONObject(it)

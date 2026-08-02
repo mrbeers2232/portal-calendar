@@ -100,6 +100,12 @@ class ConfigServer(
         }
         s.uri == "/api/rewards" && s.method == Method.GET ->
             json(Rewards.preview(ctx, s.parameters["memberId"]?.firstOrNull().orEmpty()))
+        s.uri == "/api/rewards/message" && s.method == Method.GET -> {
+            val memberId = s.parameters["memberId"]?.firstOrNull().orEmpty()
+            val portalUrl = s.parameters["portalUrl"]?.firstOrNull().orEmpty()
+            json(org.json.JSONObject().put("title", "FamilyHub approval")
+                .put("message", Rewards.approvalMessage(ctx, memberId, portalUrl)).toString())
+        }
         s.uri == "/api/meals" && s.method == Method.GET ->
             json(Meals.statusJson(ctx))
         s.uri == "/api/meals" && s.method == Method.POST ->
