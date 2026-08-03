@@ -17,25 +17,17 @@ class ConfigServer(
     private class BodyTooLarge : Exception("request body too large")
 
     override fun serve(session: IHTTPSession): Response = try {
-        if (session.method == Method.OPTIONS) {
-            cors(newFixedLengthResponse(Response.Status.OK, "text/plain", ""))
-        } else cors(route(session))
+        route(session)
     } catch (e: BodyTooLarge) {
         // The unread body is still on the socket — don't let keep-alive reuse it.
-        cors(newFixedLengthResponse(Response.Status.PAYLOAD_TOO_LARGE, "application/json",
-            "{\"error\":\"request too large\"}").apply { addHeader("connection", "close") })
+        newFixedLengthResponse(Response.Status.PAYLOAD_TOO_LARGE, "application/json",
+            "{\"error\":\"request too large\"}").apply { addHeader("connection", "close") }
     } catch (e: IllegalArgumentException) {
-        cors(newFixedLengthResponse(Response.Status.BAD_REQUEST, "application/json",
-            "{\"error\":${jsonStr(e.message ?: "invalid input")}}"))
+        newFixedLengthResponse(Response.Status.BAD_REQUEST, "application/json",
+            "{\"error\":${jsonStr(e.message ?: "invalid input")}}")
     } catch (e: Exception) {
-        cors(newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "application/json",
-            "{\"error\":${jsonStr(e.message ?: e.javaClass.simpleName)}}"))
-    }
-
-    private fun cors(response: Response): Response = response.apply {
-        addHeader("Access-Control-Allow-Origin", "*")
-        addHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
-        addHeader("Access-Control-Allow-Headers", "Content-Type")
+        newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "application/json",
+            "{\"error\":${jsonStr(e.message ?: e.javaClass.simpleName)}}")
     }
 
     private fun route(s: IHTTPSession): Response = when {
