@@ -53,19 +53,12 @@ object Rewards {
         val name = Members.byId(ctx, memberId)?.name ?: "Kaylee"
         val hours = preview.optInt("bonusHours")
         val streak = preview.optInt("streakDays")
-        val configured = portalUrl.trimEnd('/')
-        val base = if (configured.isBlank() || configured == "http://192.168.0.122:8090" ||
-            configured == "http://100.103.246.81:8090") {
-            "http://kitchenportal.tail8278d1.ts.net:8090"
-        } else configured
-        val approve = base + "/?approveMember=" + java.net.URLEncoder.encode(memberId, "UTF-8")
-        val history = base + "/history.html?person=" + java.net.URLEncoder.encode(memberId, "UTF-8")
+        val approve = portalUrl.trimEnd('/') + "/?approveMember=" + java.net.URLEncoder.encode(memberId, "UTF-8")
         val familyLink = "https://families.google.com/"
         return "${name} has completed her morning routine!\n" +
             "Recommendation: add ${hours} hour${if (hours == 1) "" else "s"} of bonus time " +
             "(${streak}-day streak).\n\n" +
             "Approve in PortalHub: $approve\n" +
-            "Review routine history: $history\n" +
             "Open Family Link: $familyLink"
     }
 

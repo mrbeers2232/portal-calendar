@@ -69,16 +69,9 @@ class KeepAliveService : Service() {
         super.onDestroy()
     }
 
-    private fun portalUrl(): String {
-        val configured = getSharedPreferences("config", MODE_PRIVATE)
-            .getString("portal_url", "").orEmpty().trim().trimEnd('/')
-        // Keep parent links usable both on the LAN and over Tailscale. The
-        // hostname resolves locally through the family's split-DNS setup.
-        return if (configured.isBlank() || configured == "http://192.168.0.122:8090" ||
-            configured == "http://100.103.246.81:8090") {
-            "http://kitchenportal.tail8278d1.ts.net:8090"
-        } else configured
-    }
+    private fun portalUrl(): String = getSharedPreferences("config", MODE_PRIVATE)
+        .getString("portal_url", "http://192.168.0.122:8090")
+        .orEmpty().trim().trimEnd('/')
 
     private fun hasUsageAccess(): Boolean {
         val ops = getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
