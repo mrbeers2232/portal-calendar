@@ -80,6 +80,10 @@ class ConfigServer(
             GoogleTasks.unlink(ctx, org.json.JSONObject(readBody(s)).getString("listId"))
             json(FamilyLists.json(ctx))
         }
+        s.uri == "/api/sync/settings" && s.method == Method.GET ->
+            json(SyncSettings.json(ctx))
+        s.uri == "/api/sync/settings" && s.method == Method.POST ->
+            json(SyncSettings.save(ctx, org.json.JSONObject(readBody(s))))
         s.uri == "/api/chores" && s.method == Method.GET ->
             json(Chores.statusJson(ctx))
         s.uri == "/api/chores" && s.method == Method.POST ->
