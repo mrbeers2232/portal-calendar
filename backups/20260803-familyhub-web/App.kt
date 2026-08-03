@@ -29,7 +29,6 @@ class App : Application() {
     lateinit var store: ConfigStore
     lateinit var sync: SyncManager
     private var server: ConfigServer? = null
-    private var familyHubServer: FamilyHubDownloadServer? = null
     private val main = Handler(Looper.getMainLooper())
     private val syncLoop = object : Runnable {
         override fun run() {
@@ -61,8 +60,6 @@ class App : Application() {
         } catch (_: Exception) {
             // Port busy (stale process) — the page just won't load until relaunch.
         }
-        familyHubServer = FamilyHubDownloadServer(this)
-        runCatching { familyHubServer?.start(fi.iki.elonen.NanoHTTPD.SOCKET_READ_TIMEOUT, true) }
         registerReceiver(object : BroadcastReceiver() {
             override fun onReceive(c: Context, intent: Intent) {
                 onDreamEvent(intent.action ?: return)
