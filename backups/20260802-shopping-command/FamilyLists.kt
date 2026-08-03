@@ -15,48 +15,6 @@ object FamilyLists {
 
     fun json(ctx: Context): String = Data.readArray(ctx, FILE).toString()
 
-    /** Voice-friendly mutation for the one shared family shopping list. */
-    fun shoppingCommand(ctx: Context, operation: String, text: String): String {
-        val itemText = text.trim()
-        if (itemText.isEmpty()) throw IllegalArgumentException("the shopping item is empty")
-        val op = operation.trim().lowercase()
-        var result = ""
-        Data.mutate(ctx, FILE) { arr ->
-            var list: JSONObject? = null
-            for (i in 0 until arr.length()) {
-                val candidate = arr.getJSONObject(i)
-                val name = candidate.optString("name").lowercase()
-                if (name.contains("grocer") || name.contains("shopping")) { list = candidate; break }
-            }
-            if (list == null) {
-                list = JSONObject().put("id", UUID.randomUUID().toString())
-                    .put("name", "Groceries").put("items", JSONArray())
-                arr.put(list)
-            }
-            val items = list!!.getJSONArray("items")
-            val existing = (0 until items.length()).map { items.getJSONObject(it) }
-                .firstOrNull { it.optString("text").equals(itemText, ignoreCase = true) }
-            when (op) {
-                "add" -> {
-                    if (existing == null) items.put(JSONObject().put("id", UUID.randomUUID().toString())
-                        .put("text", itemText).put("done", false))
-                    result = if (existing == null) "added" else "already_present"
-                }
-                "remove", "delete" -> {
-                    if (existing != null) for (i in items.length() - 1 downTo 0)
-                        if (items.getJSONObject(i).optString("id") == existing.optString("id")) {
-                            queueRemoteDelete(list!!, existing); items.remove(i)
-                        }
-                    result = if (existing == null) "not_found" else "removed"
-                }
-                else -> throw IllegalArgumentException("operation must be add or remove")
-            }
-        }
-        App.instance.notifyDataChanged()
-        App.instance.kickTasksSync()
-        return JSONObject().put("ok", true).put("operation", result).put("item", itemText).toString()
-    }
-
     fun mutate(ctx: Context, action: JSONObject): String {
         val out = Data.mutate(ctx, FILE) { arr -> apply(arr, action); arr.toString() }
         FamilySync.pushIfSpoke(ctx, "lists", action.toString())

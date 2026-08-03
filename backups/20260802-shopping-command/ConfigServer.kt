@@ -72,10 +72,6 @@ class ConfigServer(
             json(FamilyLists.json(ctx))
         s.uri == "/api/lists" && s.method == Method.POST ->
             json(FamilyLists.mutate(ctx, org.json.JSONObject(readBody(s))))
-        s.uri == "/api/shopping/command" && s.method == Method.POST -> {
-            val o = org.json.JSONObject(readBody(s))
-            json(FamilyLists.shoppingCommand(ctx, o.getString("operation"), o.getString("item")))
-        }
         s.uri == "/api/gtasks/link" && s.method == Method.POST -> {
             GoogleTasks.link(ctx, org.json.JSONObject(readBody(s)).getString("listId"))
             json(FamilyLists.json(ctx))
