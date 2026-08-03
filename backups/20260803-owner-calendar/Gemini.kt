@@ -198,7 +198,7 @@ object Gemini {
             email or list) and extract actionable items for the family.
             Respond with STRICT JSON only, exactly this shape:
             {"events":[{"title":string,"date":"YYYY-MM-DD","time":"HH:MM" or null,
-              "durationMins":number,"allDay":boolean,"calendarOwner":string}],
+              "durationMins":number,"allDay":boolean,"calendar":string}],
              "listItems":[{"list":string,"text":string}],
              "chores":[{"title":string,"member":string or "","date":"YYYY-MM-DD"}],
              "routines":[{"title":string,"member":string or "","date":"YYYY-MM-DD" or null,"section":"morning" or "afternoon" or "evening" or "anytime"}],
@@ -206,9 +206,8 @@ object Gemini {
             Rules: only include things clearly present; resolve relative dates
             against today; use "Groceries" or "To-Do" for list names unless
             another list is obvious; assign a chore's member only when a family
-            member is clearly meant. Calendar events use the named calendar owner
-            when supplied; never infer an owner or choose a literal calendar name;
-            the board is a merged display,
+            member is clearly meant. Calendar events use the named writable
+            calendar when the command supplies one; the board is a merged display,
             not a local calendar.
             Use empty arrays when nothing fits.
             ${if (text.isNullOrBlank()) "" else "Content:\n$text"}
@@ -246,7 +245,7 @@ object Gemini {
              "reply":string (ONE short friendly sentence confirming what you did,
                              or answering if it was just a question),
              "events":[{"title":string,"date":"YYYY-MM-DD","time":"HH:MM" or null,
-               "durationMins":number,"allDay":boolean,"calendarOwner":string}],
+               "durationMins":number,"allDay":boolean,"calendar":string}],
              "listItems":[{"list":string,"text":string}],
              "chores":[{"title":string,"member":string or "","date":"YYYY-MM-DD"}],
              "routines":[{"title":string,"member":string or "","date":"YYYY-MM-DD" or null,"section":string}],
@@ -319,10 +318,9 @@ object Gemini {
             for (i in 0 until evs.length()) {
                 val ev = evs.getJSONObject(i)
                 try {
-                    val owner = ev.optString("calendarOwner").trim()
-                    if (owner.isEmpty()) throw IllegalArgumentException("ask whose calendar to use before adding this event")
-                    if (!Writers.setTargetForOwner(ctx, owner))
-                        throw IllegalArgumentException("no connected writable calendar is configured for $owner")
+                    val calendar = ev.optString("calendar").trim()
+                    if (calendar.isNotEmpty() && !Writers.setTargetByName(ctx, calendar))
+                        throw IllegalArgumentException("calendar '$calendar' was not found")
                     val time = ev.optString("time").takeIf { it.isNotEmpty() && it != "null" }
                     val allDay = ev.optBoolean("allDay", false) || time == null
                     val (s, e) = CalDav.eventWindow(ev.getString("date"), time,

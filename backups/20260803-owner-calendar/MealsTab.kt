@@ -129,20 +129,17 @@ class MealsTab(
                     textSize = 12f
                     setTextColor(FAINT)
                 }, lp())
-                val mealRow = LinearLayout(ctx).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    gravity = Gravity.CENTER_VERTICAL
-                }
-                mealRow.addView(TextView(ctx).apply {
+                col.addView(TextView(ctx).apply {
                     text = entry.optString("text").ifEmpty { "—" }
                     textSize = 13.5f
                     setTextColor(INK)
                     maxLines = 2
                     ellipsize = TextUtils.TruncateAt.END
-                    minimumHeight = dp(44)
+                    minimumHeight = dp(44) // the row IS the tap target for the recipe
                     gravity = Gravity.CENTER_VERTICAL
-                    typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-                    setOnClickListener {
+                    run {
+                        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                        setOnClickListener {
                             val r = Meals.recipe(ctx, entry.optString("recipeId"))
                             if (r != null) {
                                 showDetail(r.optString("title"), buildString {
@@ -159,22 +156,9 @@ class MealsTab(
                                 showDetail(entry.optString("text"),
                                     "Planned for ${slot.replaceFirstChar { c -> c.uppercase() }}")
                             }
+                        }
                     }
-                }, LinearLayout.LayoutParams(0, WRAP, 1f))
-                mealRow.addView(TextView(ctx).apply {
-                    text = "✕"
-                    textSize = 18f
-                    setTextColor(ACCENT)
-                    gravity = Gravity.CENTER
-                    setPadding(dp(8), 0, 0, 0)
-                    contentDescription = "Remove meal"
-                    setOnClickListener {
-                        Meals.mutate(ctx, org.json.JSONObject().put("action", "setMeal")
-                            .put("date", dayFmt.format(dayCal.time)).put("slot", slot).put("text", ""))
-                        render()
-                    }
-                }, LinearLayout.LayoutParams(WRAP, MATCH))
-                col.addView(mealRow, lp(bottom = dp(8)))
+                }, lp(bottom = dp(8)))
             }
             if (!anyMeal) {
                 col.addView(TextView(ctx).apply {

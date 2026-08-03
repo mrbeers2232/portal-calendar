@@ -48,17 +48,6 @@ object Writers {
         return true
     }
 
-    /** Select a person's explicitly configured default calendar; never guess from a literal name. */
-    fun setTargetForOwner(ctx: Context, owner: String): Boolean {
-        val key = owner.trim().lowercase().replace(Regex("[^a-z0-9]+"), "_").trim('_')
-        if (key.isEmpty()) return false
-        val raw = prefs(ctx).getString("calendar_owner_$key", null) ?: return false
-        val o = runCatching { JSONObject(raw) }.getOrNull() ?: return false
-        val kind = o.optString("kind"); val id = o.optString("id")
-        if (kind.isBlank() || id.isBlank() || calendars(ctx).none { it.kind == kind && it.id == id }) return false
-        setTarget(ctx, kind, id); return true
-    }
-
     /** Keeps the target valid as accounts connect/disconnect. */
     fun ensureDefault(ctx: Context) {
         if (target(ctx) != null) return
@@ -68,8 +57,12 @@ object Writers {
     }
 
     fun addEvent(ctx: Context, title: String, start: Long, end: Long, allDay: Boolean) {
+        // A merged display board has no local calendar. Always converge a stale
+        // or missing target to the first connected writable calendar instead of
+        // silently dropping a Jarvis-created event.
+        ensureDefault(ctx)
         val t = target(ctx)
-            ?: throw IllegalArgumentException("no writable calendar is configured")
+            ?: throw IllegalArgumentException("connect iCloud or Google first (Two-way sync card)")
         when (t.kind) {
             "icloud" -> CalDav.addEventTo(ctx, t.id, title, start, end, allDay)
             "google" -> GoogleCal.addEvent(ctx, t.id, title, start, end, allDay)

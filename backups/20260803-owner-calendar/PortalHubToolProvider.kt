@@ -25,12 +25,10 @@ class PortalHubToolProvider : ContentProvider() {
             .getOrElse { return result(false, "PortalHub command arguments were invalid.") }
         val command = request.optString("command").trim()
         if (command.isEmpty()) return result(false, "A PortalHub command is required.")
-        val owner = request.optString("calendarOwner").trim()
-        if (owner.isEmpty() && request.has("calendar"))
-            return result(false, "Calendar names are ambiguous; ask whose calendar to use (Matt, Juanita, Kaylee, or Jesse).")
+        val calendar = request.optString("calendar").trim()
 
         val ctx = context ?: return result(false, "PortalHub is unavailable.")
-        PortalHubCommands.enqueue(ctx, if (owner.isEmpty()) command else "Calendar owner: $owner\nCommand: $command")
+        PortalHubCommands.enqueue(ctx, if (calendar.isEmpty()) command else "Calendar: $calendar\nCommand: $command")
         val scheduler = ctx.getSystemService(JobScheduler::class.java)
         val scheduled = scheduler?.schedule(
             JobInfo.Builder(JOB_ID, ComponentName(ctx, PortalHubCommandJob::class.java))
@@ -39,7 +37,7 @@ class PortalHubToolProvider : ContentProvider() {
                 .build(),
         ) == JobScheduler.RESULT_SUCCESS
         return if (scheduled) {
-            result(true, "PortalHub queued the command; do not report calendar success until the owner's writable calendar confirms it.")
+            result(true, "PortalHub accepted the family command and is applying it now.")
         } else {
             result(false, "PortalHub could not schedule that command.")
         }
