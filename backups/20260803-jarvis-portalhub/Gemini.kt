@@ -199,9 +199,7 @@ object Gemini {
             {"events":[{"title":string,"date":"YYYY-MM-DD","time":"HH:MM" or null,
               "durationMins":number,"allDay":boolean}],
              "listItems":[{"list":string,"text":string}],
-             "chores":[{"title":string,"member":string or "","date":"YYYY-MM-DD"}],
-             "routines":[{"title":string,"member":string or "","date":"YYYY-MM-DD" or null,"section":"morning" or "afternoon" or "evening" or "anytime"}],
-             "meals":[{"dish":string,"date":"YYYY-MM-DD","slot":"breakfast" or "lunch" or "dinner" or "snack","addGroceries":boolean}]}
+             "chores":[{"title":string,"member":string or "","date":"YYYY-MM-DD"}]}
             Rules: only include things clearly present; resolve relative dates
             against today; use "Groceries" or "To-Do" for list names unless
             another list is obvious; assign a chore's member only when a family
@@ -214,8 +212,6 @@ object Gemini {
             .put("events", parsed.optJSONArray("events") ?: JSONArray())
             .put("listItems", parsed.optJSONArray("listItems") ?: JSONArray())
             .put("chores", parsed.optJSONArray("chores") ?: JSONArray())
-            .put("routines", parsed.optJSONArray("routines") ?: JSONArray())
-            .put("meals", parsed.optJSONArray("meals") ?: JSONArray())
             .toString()
     }
 
@@ -243,9 +239,7 @@ object Gemini {
              "events":[{"title":string,"date":"YYYY-MM-DD","time":"HH:MM" or null,
                "durationMins":number,"allDay":boolean}],
              "listItems":[{"list":string,"text":string}],
-             "chores":[{"title":string,"member":string or "","date":"YYYY-MM-DD"}],
-             "routines":[{"title":string,"member":string or "","date":"YYYY-MM-DD" or null,"section":string}],
-             "meals":[{"dish":string,"date":"YYYY-MM-DD","slot":string,"addGroceries":boolean}]}
+             "chores":[{"title":string,"member":string or "","date":"YYYY-MM-DD"}]}
             Resolve relative dates/times ("tomorrow at 3", "Friday") against now.
             Buying/getting food or supplies → a listItem on "Groceries". Telling a
             member to do something → a chore. A scheduled thing → an event. If the
@@ -259,8 +253,6 @@ object Gemini {
             .put("events", o.optJSONArray("events") ?: JSONArray())
             .put("listItems", o.optJSONArray("listItems") ?: JSONArray())
             .put("chores", o.optJSONArray("chores") ?: JSONArray())
-            .put("routines", o.optJSONArray("routines") ?: JSONArray())
-            .put("meals", o.optJSONArray("meals") ?: JSONArray())
     }
 
     /**
@@ -357,45 +349,6 @@ object Gemini {
                     applied++
                 } catch (ex: Exception) {
                     errors.put("chore \"${c.optString("title")}\": ${ex.message}")
-                }
-            }
-        }
-        o.optJSONArray("routines")?.let { routines ->
-            for (i in 0 until routines.length()) {
-                val r = routines.getJSONObject(i)
-                try {
-                    val memberId = Members.all(ctx).firstOrNull {
-                        MagicWords.fuzzyEquals(it.name.lowercase(Locale.US),
-                            r.optString("member").lowercase(Locale.US))
-                    }?.id ?: ""
-                    val action = JSONObject().put("action", "addItem")
-                        .put("title", r.getString("title"))
-                        .put("memberId", memberId)
-                        .put("section", r.optString("section").ifEmpty { "morning" })
-                        .put("icon", "✅")
-                    val date = r.optString("date").takeIf { it.isNotBlank() && it != "null" }
-                    if (date != null) action.put("oneTime", true).put("date", date)
-                    Routines.mutate(ctx, action)
-                    applied++
-                } catch (ex: Exception) {
-                    errors.put("routine \"${r.optString("title")}\": ${ex.message}")
-                }
-            }
-        }
-        o.optJSONArray("meals")?.let { meals ->
-            for (i in 0 until meals.length()) {
-                val m = meals.getJSONObject(i)
-                try {
-                    val date = m.optString("date").ifEmpty {
-                        SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
-                    }
-                    val slot = m.optString("slot").ifEmpty { "dinner" }
-                    val dish = m.optString("dish").ifEmpty { m.optString("title") }
-                    if (dish.isBlank()) throw IllegalArgumentException("the meal needs a name")
-                    planMeal(ctx, dish, date, slot, m.optBoolean("addGroceries", true))
-                    applied++
-                } catch (ex: Exception) {
-                    errors.put("meal \"${m.optString("dish")}\": ${ex.message}")
                 }
             }
         }
