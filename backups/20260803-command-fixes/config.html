@@ -1450,9 +1450,8 @@ function renderMeals(){
         <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
           <span style="width:26px;text-align:center;">${emoji}</span>
           <input type="text" value="${esc(mealText(date, slot))}" list="recipeNames" autocomplete="off"
-                 placeholder="${slot}" style="margin:0;padding:8px 12px;flex:1;">
-          <button type="button" class="del" title="Remove ${slot}" aria-label="Remove ${slot}"
-                  onclick="event.preventDefault();event.stopPropagation();clearMeal('${date}','${slot}')">✕</button>
+                 placeholder="${slot}" style="margin:0;padding:8px 12px;"
+                 onchange="setMeal('${date}','${slot}',this.value)">
         </div>`).join('')}
     </div>`;
   }).join('') + `<datalist id="recipeNames">${mealState.recipes.map(r => `<option value="${esc(r.title)}">`).join('')}</datalist>`;
@@ -1461,7 +1460,7 @@ function renderMeals(){
     <details style="border-bottom:1px solid #efece4;padding:6px 0;">
       <summary style="display:flex;align-items:center;gap:8px;">
         <span class="grow" style="flex:1;font-weight:600;">${esc(r.title)}</span>
-        <button type="button" class="del" onclick="event.preventDefault();event.stopPropagation();mealAct({action:'deleteRecipe',recipeId:'${esc(r.id)}'})">✕</button>
+        <button class="del" onclick="event.preventDefault();mealAct({action:'deleteRecipe',recipeId:'${esc(r.id)}'})">✕</button>
       </summary>
       <div style="font-size:14px;color:#4d535e;white-space:pre-wrap;margin:6px 0 4px;">${esc(r.ingredients || '')}${r.ingredients && r.steps ? '\n\n' : ''}${esc(r.steps || '')}</div>
     </details>`).join('') || '<div class="empty">No recipes yet</div>';
@@ -1486,8 +1485,6 @@ function setMeal(date, slot, text){
   const match = mealState.recipes.find(r => r.title.toLowerCase() === text.trim().toLowerCase());
   mealAct({action:'setMeal', date, slot, text: text.trim(), recipeId: match ? match.id : ''});
 }
-
-function clearMeal(date, slot){ mealAct({action:'setMeal', date, slot, text:'', recipeId:''}); }
 
 function addRecipe(){
   const title = document.getElementById('rcTitle').value.trim();

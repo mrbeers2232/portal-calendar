@@ -21,13 +21,14 @@ class PortalHubToolProvider : ContentProvider() {
         if (!isTrustedCaller()) return result(false, "Caller is not authorized to control PortalHub.")
         if (arg != TOOL_FAMILY_COMMAND) return result(false, "Unknown PortalHub command.")
 
-        val command = runCatching {
-            JSONObject(extras?.getString(EXTRA_ARGS).orEmpty()).optString("command").trim()
-        }.getOrDefault("")
+        val request = runCatching { JSONObject(extras?.getString(EXTRA_ARGS).orEmpty()) }
+            .getOrElse { return result(false, "PortalHub command arguments were invalid.") }
+        val command = request.optString("command").trim()
         if (command.isEmpty()) return result(false, "A PortalHub command is required.")
+        val calendar = request.optString("calendar").trim()
 
         val ctx = context ?: return result(false, "PortalHub is unavailable.")
-        PortalHubCommands.enqueue(ctx, command)
+        PortalHubCommands.enqueue(ctx, if (calendar.isEmpty()) command else "Calendar: $calendar\nCommand: $command")
         val scheduler = ctx.getSystemService(JobScheduler::class.java)
         val scheduled = scheduler?.schedule(
             JobInfo.Builder(JOB_ID, ComponentName(ctx, PortalHubCommandJob::class.java))

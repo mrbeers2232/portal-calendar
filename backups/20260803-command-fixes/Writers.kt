@@ -37,17 +37,6 @@ object Writers {
             JSONObject().put("kind", kind).put("id", id).toString()).apply()
     }
 
-    fun setTargetByName(ctx: Context, requested: String): Boolean {
-        val q = requested.trim().lowercase()
-        if (q.isEmpty()) return false
-        val hit = calendars(ctx).firstOrNull { c ->
-            val n = c.name.substringBeforeLast(" (").lowercase()
-            n == q || c.name.lowercase() == q || n.contains(q) || q.contains(n)
-        } ?: return false
-        setTarget(ctx, hit.kind, hit.id)
-        return true
-    }
-
     /** Keeps the target valid as accounts connect/disconnect. */
     fun ensureDefault(ctx: Context) {
         if (target(ctx) != null) return
@@ -57,10 +46,6 @@ object Writers {
     }
 
     fun addEvent(ctx: Context, title: String, start: Long, end: Long, allDay: Boolean) {
-        // A merged display board has no local calendar. Always converge a stale
-        // or missing target to the first connected writable calendar instead of
-        // silently dropping a Jarvis-created event.
-        ensureDefault(ctx)
         val t = target(ctx)
             ?: throw IllegalArgumentException("connect iCloud or Google first (Two-way sync card)")
         when (t.kind) {
