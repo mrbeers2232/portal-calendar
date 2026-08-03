@@ -32,8 +32,7 @@ class App : Application() {
     private val main = Handler(Looper.getMainLooper())
     private val syncLoop = object : Runnable {
         override fun run() {
-            if (SyncSettings.googleTasksEnabled(this@App) ||
-                SyncSettings.googleGroceriesEnabled(this@App)) kickTasksSync(0)
+            if (SyncSettings.googleEnabled(this@App)) kickTasksSync(0)
             main.postDelayed(this, SyncSettings.intervalMs(this@App))
         }
     }

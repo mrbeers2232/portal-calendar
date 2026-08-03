@@ -561,19 +561,10 @@
   </div>
 
   <div class="card" data-tab="settings">
-    <strong>Account sync controls</strong>
-    <p style="font-size:13px;color:#737983;margin:6px 0 10px;">Choose separately what each connected account may sync. Calendar feeds already added above remain independent; these switches control Portal write/list synchronization.</p>
-    <div style="border:1px solid #e7e2d8;border-radius:10px;padding:10px;margin-bottom:10px;">
-      <div style="font-weight:600;">Google account <span id="syncGoogleAccount" style="font-weight:400;color:#737983;">(checking…)</span></div>
-      <label><input type="checkbox" id="syncGoogleCalendar"> Calendar events</label>
-      <label><input type="checkbox" id="syncGoogleGroceries"> Groceries / shopping list</label>
-      <label><input type="checkbox" id="syncGoogleTasks"> Other task lists</label>
-    </div>
-    <div style="border:1px solid #e7e2d8;border-radius:10px;padding:10px;margin-bottom:10px;">
-      <div style="font-weight:600;">Apple / iCloud <span id="syncAppleAccount" style="font-weight:400;color:#737983;">(checking…)</span></div>
-      <label><input type="checkbox" id="syncAppleCalendar"> Calendar events</label>
-      <div style="font-size:12px;color:#737983;margin-top:4px;">Apple list synchronization is not enabled yet; iCloud calendar access remains separate from Google Tasks.</div>
-    </div>
+    <strong>List sync automation</strong>
+    <p style="font-size:13px;color:#737983;margin:6px 0 10px;">Choose which providers are active and how often linked lists reconcile. The minimum is 5 seconds; requests are serialized so a slow network cannot overlap sync passes.</p>
+    <label><input type="checkbox" id="syncGoogleEnabled" checked> Google Tasks</label>
+    <label><input type="checkbox" id="syncAppleEnabled" checked> Apple / iCloud</label>
     <label for="syncInterval">Sync interval (seconds)</label>
     <input type="number" id="syncInterval" min="5" max="3600" value="5">
     <div style="font-size:13px;color:#737983;margin-top:8px;">Multiple account profiles can be recorded here for staged setup; each account still requires its own OAuth or app-specific-password authorization.</div>
@@ -817,25 +808,17 @@ async function loadSync(){
 async function loadSyncSettings(){
   try {
     const st = await (await fetch('/api/sync/settings')).json();
-    document.getElementById('syncGoogleCalendar').checked = st.googleCalendarEnabled !== false;
-    document.getElementById('syncGoogleGroceries').checked = st.googleGroceriesEnabled !== false;
-    document.getElementById('syncGoogleTasks').checked = st.googleTasksEnabled !== false;
-    document.getElementById('syncAppleCalendar').checked = st.appleEnabled !== false;
+    document.getElementById('syncGoogleEnabled').checked = st.googleEnabled;
+    document.getElementById('syncAppleEnabled').checked = st.appleEnabled;
     document.getElementById('syncInterval').value = st.intervalSeconds;
-    const w = await (await fetch('/api/writers')).json();
-    document.getElementById('syncGoogleAccount').textContent = w.google && w.google.connected ? '— connected' : '— not connected';
-    document.getElementById('syncAppleAccount').textContent = w.icloud && w.icloud.connected ? '— connected' : '— not connected';
   } catch(e) { show('syncSettingsMsg', e.message, false); }
 }
 
 async function saveSyncSettings(){
   try {
     const r = await fetch('/api/sync/settings', {method:'POST', body: JSON.stringify({
-      googleCalendarEnabled: document.getElementById('syncGoogleCalendar').checked,
-      googleGroceriesEnabled: document.getElementById('syncGoogleGroceries').checked,
-      googleTasksEnabled: document.getElementById('syncGoogleTasks').checked,
-      googleEnabled: document.getElementById('syncGoogleTasks').checked,
-      appleEnabled: document.getElementById('syncAppleCalendar').checked,
+      googleEnabled: document.getElementById('syncGoogleEnabled').checked,
+      appleEnabled: document.getElementById('syncAppleEnabled').checked,
       intervalSeconds: Number(document.getElementById('syncInterval').value || 5)
     })});
     const st = await r.json();

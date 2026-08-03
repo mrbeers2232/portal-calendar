@@ -15,12 +15,8 @@ object Writers {
     private fun prefs(ctx: Context) = ctx.getSharedPreferences("config", Context.MODE_PRIVATE)
 
     fun calendars(ctx: Context): List<Cal> =
-        (if (SyncSettings.appleEnabled(ctx))
-            CalDav.calendars(ctx).map { Cal("icloud", it.href, "${it.name} (iCloud)") }
-         else emptyList()) +
-        if (SyncSettings.googleCalendarEnabled(ctx))
-            GoogleCal.calendars(ctx).map { Cal("google", it.first, "${it.second} (Google)") }
-        else emptyList()
+        CalDav.calendars(ctx).map { Cal("icloud", it.href, "${it.name} (iCloud)") } +
+        GoogleCal.calendars(ctx).map { Cal("google", it.first, "${it.second} (Google)") }
 
     fun target(ctx: Context): Cal? {
         val raw = prefs(ctx).getString("write_target", null) ?: return null
@@ -61,9 +57,9 @@ object Writers {
      */
     fun deleteEvent(ctx: Context, uid: String): Boolean {
         if (uid.isBlank()) return false
-        if (SyncSettings.googleCalendarEnabled(ctx) && GoogleCal.isConnected(ctx) &&
+        if (GoogleCal.isConnected(ctx) &&
             runCatching { GoogleCal.deleteByUid(ctx, uid) }.getOrDefault(false)) return true
-        if (SyncSettings.appleEnabled(ctx) && CalDav.isConnected(ctx) &&
+        if (CalDav.isConnected(ctx) &&
             runCatching { CalDav.deleteByUid(ctx, uid) }.getOrDefault(false)) return true
         return false
     }

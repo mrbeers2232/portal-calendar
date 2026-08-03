@@ -36,14 +36,6 @@ object GoogleTasks {
 
     private val JSON_T = "application/json; charset=utf-8".toMediaType()
 
-    /** Groceries is deliberately independent from ordinary task syncing. */
-    private fun enabledForList(ctx: Context, list: JSONObject): Boolean {
-        val name = list.optString("name").trim().lowercase()
-        val groceries = name.contains("grocer") || name.contains("shopping")
-        return if (groceries) SyncSettings.googleGroceriesEnabled(ctx)
-        else SyncSettings.googleTasksEnabled(ctx)
-    }
-
     /** Everything one syncList pass wants to change, keyed for a fresh merge. */
     private class ListResult(val listId: String) {
         val deletesPushed = HashSet<String>()          // queue entries to clear
@@ -94,7 +86,7 @@ object GoogleTasks {
         for (li in 0 until snapshot.length()) {
             val list = snapshot.getJSONObject(li)
             val gid = list.optString("gtasksId")
-            if (gid.isEmpty() || !enabledForList(ctx, list)) continue
+            if (gid.isEmpty()) continue
             try {
                 results.add(syncList(ctx, list, gid))
             } catch (e: Exception) {
