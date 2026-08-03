@@ -35,10 +35,6 @@ class ConfigServer(
             val html = ctx.assets.open("config.html").bufferedReader().readText()
             newFixedLengthResponse(Response.Status.OK, "text/html", html)
         }
-        s.uri == "/history.html" -> {
-            val html = ctx.assets.open("history.html").bufferedReader().readText()
-            newFixedLengthResponse(Response.Status.OK, "text/html", html)
-        }
         s.uri == "/api/config" && s.method == Method.GET ->
             json(store.feedsJson())
         s.uri == "/api/config" && s.method == Method.POST -> {
