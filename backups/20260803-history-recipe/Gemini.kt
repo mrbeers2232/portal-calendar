@@ -167,23 +167,6 @@ object Gemini {
         return (0 until arr.length()).map { arr.optString(it) }
     }
 
-    /** Gemini occasionally omits a final brace despite JSON response mode. */
-    private fun parseModelObject(raw: String): JSONObject {
-        var s = raw.trim()
-            .removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
-        try { return JSONObject(s) } catch (_: Exception) {
-            // Repair only unambiguous truncation: close an unfinished string,
-            // then balance object/array delimiters. Other malformed responses
-            // still fail with the original parser error.
-            if (s.count { it == '"' } % 2 == 1) s += "\""
-            val opens = s.count { it == '{' } - s.count { it == '}' }
-            val arrays = s.count { it == '[' } - s.count { it == ']' }
-            repeat(arrays.coerceAtLeast(0)) { s += "]" }
-            repeat(opens.coerceAtLeast(0)) { s += "}" }
-            return JSONObject(s)
-        }
-    }
-
     // ------------------------------------------------------- the features
 
     /** Photo/text → proposed events, list items and chores (nothing applied). */
@@ -207,7 +190,7 @@ object Gemini {
             ${if (text.isNullOrBlank()) "" else "Content:\n$text"}
         """.trimIndent()
         val raw = generate(ctx, prompt, imageB64, mime)
-        val parsed = parseModelObject(raw)
+        val parsed = JSONObject(raw) // throws if the model ignored JSON mode
         return JSONObject()
             .put("events", parsed.optJSONArray("events") ?: JSONArray())
             .put("listItems", parsed.optJSONArray("listItems") ?: JSONArray())
@@ -246,7 +229,7 @@ object Gemini {
             audio is empty or unintelligible, set transcript to "" and arrays empty.
         """.trimIndent()
         val raw = generate(ctx, prompt, wavB64, "audio/wav")
-        val o = parseModelObject(raw)
+        val o = JSONObject(raw)
         return JSONObject()
             .put("transcript", o.optString("transcript"))
             .put("reply", o.optString("reply"))
@@ -282,7 +265,7 @@ object Gemini {
             A command about buying/getting food or supplies is a "list" for Groceries.
             A command telling a member to do something is a "chore".
         """.trimIndent()
-        val o = parseModelObject(generate(ctx, prompt, null, null))
+        val o = JSONObject(generate(ctx, prompt, null, null))
         val text = o.optString("text").trim().ifEmpty { title }
         return when (o.optString("kind")) {
             "chore" -> {
@@ -412,7 +395,7 @@ object Gemini {
             "steps":string (numbered steps, one per line)}.
             Keep it practical — common ingredients, under 12 steps.
         """.trimIndent()
-        val parsed = parseModelObject(generate(ctx, prompt, null, null))
+        val parsed = JSONObject(generate(ctx, prompt, null, null))
         return JSONObject()
             .put("title", parsed.optString("title", dish))
             .put("ingredients", parsed.optString("ingredients"))
