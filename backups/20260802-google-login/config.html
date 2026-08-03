@@ -529,13 +529,13 @@
     </div>
     <div id="icMsg" class="msgline"></div>
 
-    <div style="font-weight:600;margin-top:12px;border-top:1px solid #efece4;padding-top:14px;">Google account (Calendar + Tasks)</div>
+    <div style="font-weight:600;margin-top:12px;border-top:1px solid #efece4;padding-top:14px;">Google Calendar</div>
     <div id="gDisconnected" style="display:none;">
       <details style="margin:6px 0 10px;">
         <summary style="font-size:14px;">One-time Google Cloud setup (~5 min)</summary>
         <ol>
           <li>Open <a href="https://console.cloud.google.com" target="_blank" rel="noopener">console.cloud.google.com</a> and create a project.</li>
-          <li>APIs &amp; Services → Library → enable the <strong>Google Calendar API</strong> and <strong>Google Tasks API</strong>.</li>
+          <li>APIs &amp; Services → Library → enable the <strong>Google Calendar API</strong>.</li>
           <li>OAuth consent screen → External → fill the required fields → <strong>Publish app</strong> (production — the "unverified app" warning at sign-in is expected for a personal project; in Testing mode the connection would expire weekly).</li>
           <li>Credentials → Create credentials → OAuth client ID → type <strong>Desktop app</strong>. Copy the Client ID and Client secret below.</li>
         </ol>
@@ -544,8 +544,7 @@
       <input type="text" id="gId" placeholder="….apps.googleusercontent.com" autocomplete="off">
       <label for="gSecret">Client secret</label>
       <input type="text" id="gSecret" autocomplete="off">
-      <div style="font-size:13px;color:#737983;margin:8px 0;">This signs in the Google account that owns the shared lists. It uses OAuth — never enter your Gmail password here.</div>
-      <button class="ghost" style="width:100%;" onclick="googleBegin()">Get Google sign-in link</button>
+      <button class="ghost" style="width:100%;" onclick="googleBegin()">Get sign-in link</button>
       <div id="gStep2" style="display:none;">
         <div style="font-size:14px;margin:12px 0 4px;">1. <a id="gAuthLink" href="#" target="_blank" rel="noopener"><strong>Sign in with Google</strong></a> as the calendar's owner and allow access.</div>
         <div style="font-size:13px;color:#737983;margin-bottom:6px;">2. You'll land on a "site can't be reached" <code>localhost</code> page — copy that page's <em>full address</em> from the address bar and paste it here:</div>
