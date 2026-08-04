@@ -73,6 +73,9 @@ object MagicWords {
         val t = title.trim()
         val lower = t.lowercase(Locale.US)
 
+        Regex("^(?:add|create|remember)\\s+(?:a\\s+)?(?:task|to[- ]do)\\s+(.+)$",
+            RegexOption.IGNORE_CASE).find(t)?.let { return Directive("todo", it.groupValues[1].trim()) }
+
         Regex("^(?:add|create|schedule)\\s+(?:a\\s+)?(?:calendar\\s+)?event\\s*:?\\s*(.+)$",
             RegexOption.IGNORE_CASE).find(t)?.let { return Directive("event", it.groupValues[1]) }
 
