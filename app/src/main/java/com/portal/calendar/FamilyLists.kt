@@ -80,32 +80,90 @@ object FamilyLists {
         return JSONObject().put("added", added).put("merged", merged).toString()
     }
 
-    private data class IngredientLine(val base: String, val amount: Double?, val unit: String?, val count: Int?, val display: String) {
+    private data class IngredientLine(val base: String, val amount: Double?, val unit: String?, val count: Int?, val optional: Boolean, val display: String) {
         companion object {
             private val paren = Regex("^(.+?)\\s*\\(([^)]+)\\)$")
             private val countRx = Regex("^(.+?)\\s+x(\\d+)$", RegexOption.IGNORE_CASE)
-            private val leading = Regex("^(\\d+(?:\\.\\d+)?(?:\\s+(?:lb|lbs|oz|kg|g|cups?|tbsp|tsp|packets?|cans?|cloves?|pieces?|slices?))?)\\s+(.+)$", RegexOption.IGNORE_CASE)
+            private val leading = Regex("^((?:\\d+\\/\\d+|\\d+(?:\\.\\d+)?)(?:\\s+(?:lb|lbs|oz|kg|g|cups?|tbsp|tbsps|tablespoons?|tsp|tsps|teaspoons?|packets?|cans?|cloves?|pieces?|slices?|handfulls?|handfuls?))?)\\s+(.+)$", RegexOption.IGNORE_CASE)
             fun parse(raw: String): IngredientLine {
-                paren.matchEntire(raw)?.let { return quantity(it.groupValues[1], it.groupValues[2]) }
-                countRx.matchEntire(raw)?.let { return IngredientLine(it.groupValues[1].trim(), null, null, it.groupValues[2].toInt(), raw) }
-                leading.matchEntire(raw)?.let { return quantity(it.groupValues[2], it.groupValues[1]) }
-                return IngredientLine(raw.trim(), null, null, null, raw.trim())
+                var text = raw.trim()
+                var optional = Regex("\\(optional\\)", RegexOption.IGNORE_CASE).containsMatchIn(text) ||
+                    text.contains(" optional", true)
+                text = text.replace(Regex("\\s*\\(optional\\)", RegexOption.IGNORE_CASE), "")
+                    .replace(Regex("\\boptional\\b", RegexOption.IGNORE_CASE), "").trim()
+                paren.matchEntire(text)?.let {
+                    val note = it.groupValues[2].trim()
+                    when {
+                        note.startsWith("like ", true) -> Unit // keep descriptive note in the base
+                        note.contains(" or ", true) -> text = it.groupValues[1].trim() // generalized alternative
+                        else -> return quantity(it.groupValues[1], note, optional)
+                    }
+                }
+                countRx.matchEntire(text)?.let { return IngredientLine(cleanBase(it.groupValues[1]), null, null, it.groupValues[2].toInt(), optional, "${cleanBase(it.groupValues[1])} x${it.groupValues[2]}") }
+                leading.matchEntire(text)?.let { return quantity(it.groupValues[2], it.groupValues[1], optional) }
+                return IngredientLine(cleanBase(text), null, null, null, optional, cleanBase(text) + if (optional) " (optional)" else "")
             }
-            private fun quantity(base: String, amount: String): IngredientLine {
-                val m = Regex("^(\\d+(?:\\.\\d+)?)(?:\\s+(.+))?$").matchEntire(amount.trim())
-                val n = m?.groupValues?.get(1)?.toDoubleOrNull(); val unit = m?.groupValues?.get(2)?.trim()?.ifEmpty { null }
-                return IngredientLine(base.trim(), n, unit, null, "${base.trim()} (${amount.trim()})")
+            private fun quantity(base: String, amount: String, optional: Boolean): IngredientLine {
+                val normalized = amount.trim().replace(Regex("^tablespoons?$", RegexOption.IGNORE_CASE), "tbsp").replace(Regex("^teaspoons?$", RegexOption.IGNORE_CASE), "tsp").replace(Regex("^handfuls?$", RegexOption.IGNORE_CASE), "handfulls")
+                val m = Regex("^((?:\\d+\\s+)?(?:\\d+\\/\\d+|\\d+(?:\\.\\d+)?))(?:\\s+(.+))?$").matchEntire(normalized)
+                val n = m?.groupValues?.get(1)?.let(::fraction); val unit = m?.groupValues?.get(2)?.trim()?.ifEmpty { null }
+                val b = cleanBase(base)
+                if (unit == null && n != null && n % 1.0 == 0.0 && b.contains(" - sliced", true))
+                    return IngredientLine(b, null, null, n.toInt(), optional, "$b x${n.toInt()}")
+                val shownUnit = unit?.let { canonicalUnit(it) }
+                return IngredientLine(b, n, shownUnit, null, optional, "$b (${format(n ?: 0.0)}${shownUnit?.let { " $it" } ?: ""}${if (optional) " optional" else ""})")
+            }
+            private fun canonicalUnit(unit: String): String = when (unit.lowercase()) {
+                "tablespoon", "tablespoons", "tbsp", "tbsps" -> "tbsp"
+                "teaspoon", "teaspoons", "tsp", "tsps" -> "tsp"
+                "handful", "handfuls", "handfull", "handfulls" -> "handfulls"
+                else -> unit
+            }
+            private fun fraction(s: String): Double? = if (s.contains('/')) s.split('/').let { a -> a.getOrNull(0)?.toDoubleOrNull()?.div(a.getOrNull(1)?.toDoubleOrNull() ?: return null) } else s.toDoubleOrNull()
+            private fun cleanBase(raw: String): String {
+                var b = raw.trim().replace(Regex("\\s+"), " ")
+                val parenAt = b.indexOf('(')
+                val orAt = b.indexOf(" or ", ignoreCase = true)
+                if (orAt >= 0 && (parenAt < 0 || orAt < parenAt)) b = b.substring(0, orAt)
+                b = b.replace(Regex("^shredded\\s+", RegexOption.IGNORE_CASE), "")
+                b = b.replace(Regex(",\\s*sliced$", RegexOption.IGNORE_CASE), " - sliced")
+                b = b.trim().trimEnd(':', ',', '.')
+                if (b.endsWith("s - sliced", true)) b = b.dropLast("s - sliced".length) + " - sliced"
+                return b.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
             }
             fun sameBase(existing: String, base: String): Boolean = parse(existing).base.equals(base, true)
             fun combine(existingText: String, incoming: IngredientLine): String {
                 val old = parse(existingText)
                 if (old.count != null && incoming.count != null && old.base.equals(incoming.base, true)) return "${old.base} x${old.count + incoming.count}"
+                if (!incoming.optional && incoming.amount != null && old.optional && old.amount == null && old.base.equals(incoming.base, true))
+                    return "${incoming.display} (optional)"
+                if (incoming.optional && incoming.amount != null && old.base.equals(incoming.base, true)) {
+                    val opt = Regex("\\((\\d+(?:\\.\\d+)?(?:\\s+\\S+)?)\\s+optional\\)$", RegexOption.IGNORE_CASE).find(existingText)
+                    if (opt != null) {
+                        val parts = opt.groupValues[1].split(Regex("\\s+"), limit = 2)
+                        val oldN = parts[0].toDoubleOrNull() ?: 0.0
+                        val unit = parts.getOrNull(1)?.trim().orEmpty()
+                        val n = oldN + incoming.amount
+                        val value = if (n % 1.0 == 0.0) n.toInt().toString() else "%.2f".format(java.util.Locale.US, n).trimEnd('0').trimEnd('.')
+                        return existingText.removeSuffix("(${opt.groupValues[1]} optional)") + "(${value}${if (unit.isNotEmpty()) " $unit" else ""} optional)"
+                    }
+                    if (old.amount != null && !old.optional) return "$existingText (${format(incoming.amount)}${incoming.unit?.let { " $it" } ?: ""} optional)"
+                }
                 if (old.amount != null && incoming.amount != null && old.base.equals(incoming.base, true) && old.unit.equals(incoming.unit, true)) {
                     val n = old.amount + incoming.amount
                     val value = if (n % 1.0 == 0.0) n.toInt().toString() else "%.2f".format(java.util.Locale.US, n).trimEnd('0').trimEnd('.')
-                    return "${old.base}: ($value${old.unit?.let { " $it" } ?: ""})"
+                    val optionalSuffix = if (old.optional && incoming.optional) " optional" else ""
+                    return "${old.base} (${value}${old.unit?.let { " $it" } ?: ""}$optionalSuffix)"
                 }
+                if (old.amount != null && incoming.amount == null && incoming.optional && old.base.equals(incoming.base, true)) return "$existingText (optional)"
                 return existingText
+            }
+            private fun format(n: Double): String = when {
+                n % 1.0 == 0.0 -> n.toInt().toString()
+                kotlin.math.abs(n - 0.5) < 0.001 -> "1/2"
+                kotlin.math.abs(n - 0.25) < 0.001 -> "1/4"
+                kotlin.math.abs(n - 0.75) < 0.001 -> "3/4"
+                else -> "%.2f".format(java.util.Locale.US, n).trimEnd('0').trimEnd('.')
             }
         }
     }
