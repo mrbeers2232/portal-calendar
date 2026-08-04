@@ -122,6 +122,8 @@ object GoogleCal {
     fun profileEmail(ctx: Context, id: String): String? =
         runCatching { JSONObject(prefs(ctx).getString("g_profile_${id.trim()}", null) ?: return null).optString("email").takeIf { it.isNotBlank() } }.getOrNull()
 
+    fun currentAccountId(ctx: Context): String? = email(ctx)?.let(::accountId)
+
     fun accountForOwner(ctx: Context, owner: String): String? {
         val q = owner.trim().lowercase().replace(Regex("[^a-z0-9]"), "").removeSuffix("s")
         if (q.isEmpty()) return null

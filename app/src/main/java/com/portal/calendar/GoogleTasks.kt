@@ -64,7 +64,10 @@ object GoogleTasks {
             resp.getString("id")
         }
         Data.mutate(ctx, FILE) { lists ->
-            findOrNull(lists, listId)?.put("gtasksId", gid)
+            findOrNull(lists, listId)?.apply {
+                put("gtasksId", gid)
+                GoogleCal.currentAccountId(ctx)?.let { put("gtasksAccount", it) }
+            }
         }
         syncAll(ctx)
     }
@@ -73,6 +76,7 @@ object GoogleTasks {
         Data.mutate(ctx, FILE) { lists ->
             val list = findOrNull(lists, listId) ?: return@mutate
             list.remove("gtasksId")
+            list.remove("gtasksAccount")
             list.remove("deletedGtaskIds")
             val items = list.optJSONArray("items") ?: JSONArray()
             for (i in 0 until items.length()) {
@@ -88,6 +92,8 @@ object GoogleTasks {
     fun syncAll(ctx: Context) {
         if (!GoogleCal.isConnected(ctx)) return
 
+        val initialAccount = GoogleCal.currentAccountId(ctx)
+
         // Phase 1: network reconcile against a snapshot (no lock held).
         val snapshot = Data.readArray(ctx, FILE)
         val results = ArrayList<ListResult>()
@@ -96,11 +102,16 @@ object GoogleTasks {
             val gid = list.optString("gtasksId")
             if (gid.isEmpty() || !enabledForList(ctx, list)) continue
             try {
+                list.optString("gtasksAccount").takeIf { it.isNotBlank() }?.let {
+                    if (!GoogleCal.activate(ctx, it)) throw IllegalArgumentException("Google account profile is unavailable for this list")
+                }
                 results.add(syncList(ctx, list, gid))
             } catch (e: Exception) {
                 android.util.Log.w("PortalGTasks", "sync failed for ${list.optString("name")}", e)
             }
         }
+        // Keep the account the user was working with active after a multi-list pass.
+        initialAccount?.let { GoogleCal.activate(ctx, it) }
         if (results.isEmpty()) return
 
         // Phase 2: apply the deltas to FRESH state, atomically.
