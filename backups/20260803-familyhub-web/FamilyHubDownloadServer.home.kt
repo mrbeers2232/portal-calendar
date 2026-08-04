@@ -6,9 +6,8 @@ import fi.iki.elonen.NanoHTTPD
 /** Serves the FamilyHub APK/download page and browser client on the Portal hostname. */
 class FamilyHubDownloadServer(private val ctx: Context) : NanoHTTPD(PORT) {
     override fun serve(session: IHTTPSession): Response {
-        val path = if (session.uri == "/") "/default.html" else session.uri
+        val path = if (session.uri == "/") "/index.html" else session.uri
         val asset = when (path) {
-            "/default.html" -> "familyhub/default.html"
             "/index.html" -> "familyhub/index.html"
             "/familyhub.html" -> "familyhub/familyhub.html"
             "/familyhub-companion.apk" -> "familyhub/familyhub-companion.apk"
