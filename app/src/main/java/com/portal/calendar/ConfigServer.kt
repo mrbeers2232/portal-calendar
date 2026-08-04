@@ -230,11 +230,20 @@ class ConfigServer(
         }
         s.uri == "/api/google/begin" && s.method == Method.POST -> {
             val o = org.json.JSONObject(readBody(s))
+            GoogleCal.selectPendingAccount(ctx, o.optString("account").takeIf { it.isNotBlank() })
             val url = GoogleCal.begin(ctx, o.getString("clientId").trim(), o.getString("clientSecret").trim())
             json(org.json.JSONObject().put("authUrl", url).toString())
         }
         s.uri == "/api/google/code" && s.method == Method.POST -> {
             GoogleCal.finish(ctx, org.json.JSONObject(readBody(s)).getString("code"))
+            Writers.ensureDefault(ctx)
+            json(Writers.statusJson(ctx))
+        }
+        s.uri == "/api/google/accounts" && s.method == Method.GET ->
+            json(org.json.JSONObject().put("accounts", GoogleCal.accountsJson(ctx)).toString())
+        s.uri == "/api/google/activate" && s.method == Method.POST -> {
+            val id = org.json.JSONObject(readBody(s)).getString("id")
+            if (!GoogleCal.activate(ctx, id)) throw IllegalArgumentException("Google account profile not found")
             Writers.ensureDefault(ctx)
             json(Writers.statusJson(ctx))
         }

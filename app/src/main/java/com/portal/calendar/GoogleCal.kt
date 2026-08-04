@@ -43,6 +43,67 @@ object GoogleCal {
 
     private fun prefs(ctx: Context) = ctx.getSharedPreferences("config", Context.MODE_PRIVATE)
 
+    /**
+     * The legacy g_* keys remain the active account for backwards
+     * compatibility.  Profiles keep the other family authorizations without
+     * ever putting OAuth secrets in the web response.
+     */
+    private const val ACCOUNTS = "g_accounts"
+
+    fun accountsJson(ctx: Context): JSONArray {
+        val p = prefs(ctx)
+        val out = JSONArray(p.getString(ACCOUNTS, "[]"))
+        if (out.length() == 0 && isConnected(ctx)) {
+            val email = email(ctx) ?: "primary"
+            out.put(JSONObject().put("id", accountId(email)).put("email", email).put("active", true))
+            p.edit().putString(ACCOUNTS, out.toString()).apply()
+        }
+        return out
+    }
+
+    fun accountId(email: String): String = email.trim().lowercase()
+        .replace(Regex("[^a-z0-9]+"), "_").trim('_').ifEmpty { "account" }
+
+    /** Marks the profile currently being authorized; the secret stays local. */
+    fun selectPendingAccount(ctx: Context, id: String?) {
+        prefs(ctx).edit().putString("g_pending_account", id?.trim().orEmpty()).apply()
+    }
+
+    private fun saveActiveProfile(ctx: Context) {
+        val p = prefs(ctx)
+        val e = email(ctx) ?: return
+        val id = accountId(e)
+        val profile = JSONObject().put("id", id).put("email", e)
+            .put("clientId", p.getString("g_client_id", ""))
+            .put("clientSecret", p.getString("g_client_secret", ""))
+            .put("refresh", p.getString("g_refresh", ""))
+            .put("access", p.getString("g_access", ""))
+            .put("expires", p.getLong("g_token_exp", 0))
+            .put("calendars", p.getString("g_cals", "[]"))
+        val all = JSONArray()
+        val old = JSONArray(p.getString(ACCOUNTS, "[]"))
+        for (i in 0 until old.length()) if (old.getJSONObject(i).optString("id") != id) all.put(old.getJSONObject(i))
+        all.put(JSONObject().put("id", id).put("email", e).put("active", true))
+        p.edit().putString(ACCOUNTS, all.toString()).putString("g_profile_$id", profile.toString()).remove("g_pending_account").apply()
+    }
+
+    /** Switch the legacy active view to a previously authorized profile. */
+    fun activate(ctx: Context, id: String): Boolean {
+        val p = prefs(ctx)
+        val o = runCatching { JSONObject(p.getString("g_profile_${id.trim()}", null) ?: return false) }.getOrNull()
+            ?: return false
+        p.edit()
+            .putString("g_client_id", o.optString("clientId"))
+            .putString("g_client_secret", o.optString("clientSecret"))
+            .putString("g_refresh", o.optString("refresh"))
+            .putString("g_access", o.optString("access"))
+            .putLong("g_token_exp", o.optLong("expires", 0))
+            .putString("g_cals", o.optString("calendars", "[]"))
+            .putString("g_email", o.optString("email"))
+            .apply()
+        return true
+    }
+
     fun isConnected(ctx: Context): Boolean = !prefs(ctx).getString("g_refresh", null).isNullOrEmpty()
     fun email(ctx: Context): String? = prefs(ctx).getString("g_email", null)
 
@@ -111,6 +172,7 @@ object GoogleCal {
         val arr = JSONArray()
         cals.forEach { arr.put(JSONObject().put("id", it.first).put("name", it.second)) }
         p.edit().putString("g_cals", arr.toString()).apply()
+        saveActiveProfile(ctx)
         return cals
     }
 
