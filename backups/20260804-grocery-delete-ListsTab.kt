@@ -246,22 +246,6 @@ class ListsTab(
                 maxLines = 1
                 ellipsize = TextUtils.TruncateAt.END
             }, LinearLayout.LayoutParams(0, WRAP, 1f))
-            row.addView(TextView(ctx).apply {
-                text = "✕"
-                textSize = 20f
-                setTextColor(Color.rgb(220, 64, 72))
-                gravity = Gravity.CENTER
-                minimumWidth = dp(44)
-                contentDescription = "Delete ${item.optString("text")}"
-                setOnClickListener {
-                    runCatching {
-                        FamilyLists.mutate(ctx, JSONObject()
-                            .put("action", "deleteItem")
-                            .put("listId", selectedId).put("itemId", item.optString("id")))
-                    }
-                    render()
-                }
-            }, LinearLayout.LayoutParams(WRAP, dp(44)))
             itemsBox.addView(row)
         }
     }
