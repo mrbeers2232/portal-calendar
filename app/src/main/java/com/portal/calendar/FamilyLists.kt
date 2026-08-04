@@ -218,6 +218,7 @@ object FamilyLists {
                     if (arr.getJSONObject(i).optString("id") == id) arr.remove(i)
             }
             "archiveList" -> list(arr, action).put("archived", action.optBoolean("archived", true))
+            "setListOwner" -> list(arr, action).put("owner", action.optString("owner").trim())
             "addItem" -> {
                 val text = action.getString("text").trim()
                 if (text.isEmpty()) throw IllegalArgumentException("the item is empty")
