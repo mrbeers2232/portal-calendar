@@ -173,15 +173,31 @@ class ListsTab(
             val open = (0 until items.length()).count { !items.getJSONObject(it).optBoolean("done") }
             val selected = id == selectedId
             val listOwner = Members.byId(ctx, l.optString("ownerId"))
-            rail.addView(TextView(ctx).apply {
-                text = l.optString("name") + (if (open > 0) "   $open" else "") + (listOwner?.let { "   • ${it.name}" } ?: "")
+            val entry = LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                background = rounded(if (selected) ACCENT else CARD, 12)
+                setPadding(dp(14), dp(8), dp(10), dp(8))
+                setOnClickListener { selectedId = id; render() }
+            }
+            entry.addView(TextView(ctx).apply {
+                text = l.optString("name") + (if (open > 0) "   $open" else "")
                 textSize = 16f
                 setTextColor(if (selected) Color.WHITE else INK)
                 typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-                background = rounded(if (selected) ACCENT else CARD, 12)
-                setPadding(dp(14), dp(12), dp(14), dp(12))
-                setOnClickListener { selectedId = id; render() }
-            }, lp(bottom = dp(8)))
+            }, LinearLayout.LayoutParams(0, dp(44), 1f))
+            listOwner?.let { owner ->
+                entry.addView(TextView(ctx).apply {
+                    text = owner.name
+                    textSize = 11f
+                    val r = Color.red(owner.color); val g = Color.green(owner.color); val b = Color.blue(owner.color)
+                    setTextColor(if (0.299 * r + 0.587 * g + 0.114 * b > 160) Color.rgb(16, 24, 32) else Color.WHITE)
+                    gravity = Gravity.CENTER
+                    background = rounded(owner.color, 10)
+                    setPadding(dp(7), dp(3), dp(7), dp(3))
+                }, LinearLayout.LayoutParams(WRAP, dp(26)))
+            }
+            rail.addView(entry, lp(bottom = dp(8)))
         }
 
         itemsBox.removeAllViews()
@@ -257,10 +273,9 @@ class ListsTab(
                     row.addView(TextView(ctx).apply {
                         text = owner.name
                         textSize = 11f
-                        setTextColor(Color.WHITE)
+                        val r = Color.red(owner.color); val g = Color.green(owner.color); val b = Color.blue(owner.color)
+                        setTextColor(if (0.299 * r + 0.587 * g + 0.114 * b > 160) Color.rgb(16, 24, 32) else Color.WHITE)
                         gravity = Gravity.CENTER
-                        setLayerType(View.LAYER_TYPE_SOFTWARE, null)
-                        paint.setShadowLayer(dp(2).toFloat(), 0f, 0f, Color.BLACK)
                         background = rounded(owner.color, 10)
                         setPadding(dp(8), dp(3), dp(8), dp(3))
                     }, LinearLayout.LayoutParams(WRAP, dp(26)).apply { leftMargin = dp(6) })
