@@ -6,7 +6,7 @@
 [
   {
     "name": "com.portal.calendar.family_command",
-    "description": "Send a natural-language command to PortalHub to add or modify calendar events, tasks, shopping/grocery items, chores, routines, meals, or recipes. For calendar events, always ask whose calendar to use (Matt, Juanita, Kaylee, or Jesse), then pass that person in 'calendarOwner'; never choose a literal calendar name. Do not report success unless the write is confirmed.",
+    "description": "Send a natural-language command to PortalHub to add or modify calendar events, tasks, shopping/grocery items, chores, routines, meals, or recipes. For calendar events, always ask whose calendar to use (Matt, Juanita, Kaylee, or Jesse), then pass that person in 'calendarOwner'; never choose a literal calendar name. For ordinary tasks, always ask whose task list to use and pass that person in 'taskOwner'; groceries are shared and do not need an owner. Do not report success unless the write is confirmed.",
     "parameters": {
       "type": "object",
       "properties": {
@@ -17,6 +17,10 @@
         "calendarOwner": {
           "type": "string",
           "description": "Person whose configured default Google calendar should receive the event. Required for calendar events; ask if omitted."
+        },
+        "taskOwner": {
+          "type": "string",
+          "description": "Person whose individual PortalHub/Google Tasks list should receive an ordinary task. Required for tasks; ask if omitted."
         }
       },
       "required": ["command"]

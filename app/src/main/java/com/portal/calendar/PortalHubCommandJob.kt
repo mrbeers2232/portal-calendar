@@ -13,7 +13,28 @@ class PortalHubCommandJob : JobService() {
             while (true) {
                 val command = PortalHubCommands.take(this) ?: break
                 val completed = runCatching {
-                    if (Gemini.isReady(this)) {
+                    val taskRoute = Regex("""^Task owner:\s*(.+?)\s*\nCommand:\s*(.+)$""", RegexOption.DOT_MATCHES_ALL)
+                        .find(command)
+                    val calendarRoute = Regex("""^Calendar owner:\s*(.+?)\s*\nCommand:\s*(.+)$""", RegexOption.DOT_MATCHES_ALL)
+                        .find(command)
+                    if (calendarRoute != null) {
+                        val owner = calendarRoute.groupValues[1].trim()
+                        if (Gemini.isReady(this)) {
+                            val proposal = org.json.JSONObject(Gemini.smartImport(this, calendarRoute.groupValues[2].trim(), null, null))
+                            proposal.optJSONArray("events")?.let { events ->
+                                for (i in 0 until events.length()) events.getJSONObject(i).put("calendarOwner", owner)
+                            }
+                            Gemini.applyProposals(this, proposal)
+                        } else {
+                            if (!Writers.setTargetForOwner(this, owner)) throw IllegalArgumentException("no connected calendar for $owner")
+                            MagicWords.execute(this, MagicWords.parseLoose(this, calendarRoute.groupValues[2].trim()), System.currentTimeMillis())
+                        }
+                    } else if (taskRoute != null) {
+                        val owner = taskRoute.groupValues[1].trim()
+                        val d = MagicWords.parseLoose(this, taskRoute.groupValues[2].trim())
+                        if (d.kind == "groceries") MagicWords.execute(this, d, System.currentTimeMillis())
+                        else MagicWords.addToList(this, "$owner Tasks", d.payload)
+                    } else if (Gemini.isReady(this)) {
                         Gemini.applyProposals(this, org.json.JSONObject(
                             Gemini.smartImport(this, command, null, null),
                         ))

@@ -26,11 +26,25 @@ class PortalHubToolProvider : ContentProvider() {
         val command = request.optString("command").trim()
         if (command.isEmpty()) return result(false, "A PortalHub command is required.")
         val owner = request.optString("calendarOwner").trim()
+        val taskOwner = request.optString("taskOwner").trim()
+        val lower = command.lowercase()
+        val grocery = lower.contains("grocer") || lower.contains("shopping")
+        val calendar = lower.contains("calendar") || lower.contains("event") || lower.contains("schedule")
+        val task = !grocery && (lower.contains("task") || lower.contains("to-do") || lower.contains("todo"))
+        if (calendar && owner.isEmpty())
+            return result(false, "Ask whose calendar to use (Matt, Juanita, Kaylee, or Jesse), then retry with calendarOwner.")
+        if (task && taskOwner.isEmpty())
+            return result(false, "Ask whose task list to use (Matt, Juanita, Kaylee, or Jesse), then retry with taskOwner.")
         if (owner.isEmpty() && request.has("calendar"))
             return result(false, "Calendar names are ambiguous; ask whose calendar to use (Matt, Juanita, Kaylee, or Jesse).")
 
         val ctx = context ?: return result(false, "PortalHub is unavailable.")
-        PortalHubCommands.enqueue(ctx, if (owner.isEmpty()) command else "Calendar owner: $owner\nCommand: $command")
+        val routed = buildString {
+            if (owner.isNotEmpty()) append("Calendar owner: $owner\n")
+            if (taskOwner.isNotEmpty()) append("Task owner: $taskOwner\n")
+            append("Command: $command")
+        }
+        PortalHubCommands.enqueue(ctx, routed)
         val scheduler = ctx.getSystemService(JobScheduler::class.java)
         val scheduled = scheduler?.schedule(
             JobInfo.Builder(JOB_ID, ComponentName(ctx, PortalHubCommandJob::class.java))
@@ -39,7 +53,7 @@ class PortalHubToolProvider : ContentProvider() {
                 .build(),
         ) == JobScheduler.RESULT_SUCCESS
         return if (scheduled) {
-            result(true, "PortalHub queued the command; do not report calendar success until the owner's writable calendar confirms it.")
+            result(true, "PortalHub queued the command; do not report success until the requested owner's write is confirmed.")
         } else {
             result(false, "PortalHub could not schedule that command.")
         }
