@@ -58,6 +58,12 @@ object GoogleCal {
             out.put(JSONObject().put("id", accountId(email)).put("email", email).put("active", true))
             p.edit().putString(ACCOUNTS, out.toString()).apply()
         }
+        // Upgrade the original single-account installation into a full profile.
+        val current = email(ctx)
+        if (!current.isNullOrBlank()) {
+            val id = accountId(current)
+            if (p.getString("g_profile_$id", null).isNullOrBlank()) saveActiveProfile(ctx)
+        }
         return out
     }
 
@@ -102,6 +108,37 @@ object GoogleCal {
             .putString("g_email", o.optString("email"))
             .apply()
         return true
+    }
+
+    fun profileCalendars(ctx: Context, id: String): List<Pair<String, String>> {
+        val raw = prefs(ctx).getString("g_profile_${id.trim()}", null) ?: return emptyList()
+        val o = runCatching { JSONObject(raw) }.getOrNull() ?: return emptyList()
+        val arr = runCatching { JSONArray(o.optString("calendars", "[]")) }.getOrNull() ?: return emptyList()
+        return (0 until arr.length()).mapNotNull { i ->
+            arr.optJSONObject(i)?.let { it.optString("id") to it.optString("name") }
+        }
+    }
+
+    fun profileEmail(ctx: Context, id: String): String? =
+        runCatching { JSONObject(prefs(ctx).getString("g_profile_${id.trim()}", null) ?: return null).optString("email").takeIf { it.isNotBlank() } }.getOrNull()
+
+    fun accountForOwner(ctx: Context, owner: String): String? {
+        val q = owner.trim().lowercase().replace(Regex("[^a-z0-9]"), "")
+        if (q.isEmpty()) return null
+        val aliases = when (q) {
+            "matt", "mathieu", "matthieu" -> setOf("matt", "mathieu", "mrbeers")
+            "juanita" -> setOf("juanita", "wise")
+            "kaylee" -> setOf("kaylee", "ladykaylee")
+            "jesse" -> setOf("jesse", "piratejesse")
+            else -> setOf(q)
+        }
+        val all = accountsJson(ctx)
+        return (0 until all.length()).asSequence().map { all.getJSONObject(it).optString("id") }
+            .firstOrNull { id ->
+                val email = profileEmail(ctx, id)?.lowercase() ?: return@firstOrNull false
+                val compact = email.replace(Regex("[^a-z0-9]"), "")
+                aliases.any { compact.contains(it) }
+            }
     }
 
     fun isConnected(ctx: Context): Boolean = !prefs(ctx).getString("g_refresh", null).isNullOrEmpty()
@@ -221,8 +258,11 @@ object GoogleCal {
             .put("summary", title)
             .put("start", side(startMillis))
             .put("end", side(endMillis))
+        val split = calendarId.indexOf("::")
+        val rawId = if (split > 0) calendarId.substring(split + 2) else calendarId
+        if (split > 0) activate(ctx, calendarId.substring(0, split))
         val req = Request.Builder()
-            .url("$API/calendars/${URLEncoder.encode(calendarId, "UTF-8")}/events")
+            .url("$API/calendars/${URLEncoder.encode(rawId, "UTF-8")}/events")
             .header("Authorization", "Bearer " + accessToken(ctx))
             .post(body.toString().toRequestBody(JSON))
             .build()

@@ -14,13 +14,37 @@ object Writers {
 
     private fun prefs(ctx: Context) = ctx.getSharedPreferences("config", Context.MODE_PRIVATE)
 
-    fun calendars(ctx: Context): List<Cal> =
-        (if (SyncSettings.appleEnabled(ctx))
-            CalDav.calendars(ctx).map { Cal("icloud", it.href, "${it.name} (iCloud)") }
-         else emptyList()) +
-        if (SyncSettings.googleCalendarEnabled(ctx))
-            GoogleCal.calendars(ctx).map { Cal("google", it.first, "${it.second} (Google)") }
-        else emptyList()
+    fun calendars(ctx: Context): List<Cal> {
+        val out = ArrayList<Cal>()
+        if (SyncSettings.appleEnabled(ctx))
+            out += CalDav.calendars(ctx).map { Cal("icloud", it.href, "${it.name} (iCloud)") }
+        if (SyncSettings.googleCalendarEnabled(ctx)) {
+            val profiles = GoogleCal.accountsJson(ctx)
+            for (i in 0 until profiles.length()) {
+                val id = profiles.getJSONObject(i).optString("id")
+                val email = profiles.getJSONObject(i).optString("email")
+                val owner = ownerLabel(email)
+                GoogleCal.profileCalendars(ctx, id).forEach { cal ->
+                    out += Cal("google", "$id::${cal.first}", "$owner — ${cal.second} (Google)")
+                }
+            }
+            // Legacy installations may not have a profile yet.
+            if (profiles.length() == 0)
+                out += GoogleCal.calendars(ctx).map { Cal("google", it.first, "${it.second} (Google)") }
+        }
+        return out
+    }
+
+    private fun ownerLabel(email: String): String {
+        val q = email.substringBefore('@').lowercase()
+        return when {
+            q.contains("mrbeers") || q.contains("matt") -> "Matt"
+            q.contains("juanita") -> "Juanita"
+            q.contains("kaylee") -> "Kaylee"
+            q.contains("jesse") -> "Jesse"
+            else -> email.substringBefore('@')
+        }
+    }
 
     fun target(ctx: Context): Cal? {
         val raw = prefs(ctx).getString("write_target", null) ?: return null
@@ -52,11 +76,21 @@ object Writers {
     fun setTargetForOwner(ctx: Context, owner: String): Boolean {
         val key = owner.trim().lowercase().replace(Regex("[^a-z0-9]+"), "_").trim('_')
         if (key.isEmpty()) return false
-        val raw = prefs(ctx).getString("calendar_owner_$key", null) ?: return false
-        val o = runCatching { JSONObject(raw) }.getOrNull() ?: return false
-        val kind = o.optString("kind"); val id = o.optString("id")
-        if (kind.isBlank() || id.isBlank() || calendars(ctx).none { it.kind == kind && it.id == id }) return false
-        setTarget(ctx, kind, id); return true
+        val raw = prefs(ctx).getString("calendar_owner_$key", null)
+        if (raw != null) {
+            val o = runCatching { JSONObject(raw) }.getOrNull()
+            val kind = o?.optString("kind").orEmpty(); val id = o?.optString("id").orEmpty()
+            if (kind.isNotBlank() && id.isNotBlank() && calendars(ctx).any { it.kind == kind && it.id == id }) {
+                setTarget(ctx, kind, id); return true
+            }
+        }
+        val account = GoogleCal.accountForOwner(ctx, owner) ?: return false
+        val email = GoogleCal.profileEmail(ctx, account)
+        val profile = GoogleCal.profileCalendars(ctx, account)
+        val primary = profile.firstOrNull { it.first == email } ?: profile.firstOrNull() ?: return false
+        val id = "$account::${primary.first}"
+        if (calendars(ctx).none { it.kind == "google" && it.id == id }) return false
+        setTarget(ctx, "google", id); return true
     }
 
     /** Keeps the target valid as accounts connect/disconnect. */
@@ -104,8 +138,23 @@ object Writers {
                 .put("connected", GoogleCal.isConnected(ctx))
                 .put("email", GoogleCal.email(ctx) ?: ""))
             .put("calendars", cals)
+            .put("ownerTargets", ownerTargetsJson(ctx))
             .put("target", if (t == null) JSONObject.NULL
                            else JSONObject().put("kind", t.kind).put("id", t.id))
             .toString()
+    }
+
+    fun ownerTargetsJson(ctx: Context): JSONArray {
+        val out = JSONArray()
+        listOf("Matt", "Mathieu", "Juanita", "Kaylee", "Jesse").distinct().forEach { owner ->
+            val account = GoogleCal.accountForOwner(ctx, owner) ?: return@forEach
+            val email = GoogleCal.profileEmail(ctx, account) ?: return@forEach
+            val primary = GoogleCal.profileCalendars(ctx, account)
+                .firstOrNull { it.first == email } ?: GoogleCal.profileCalendars(ctx, account).firstOrNull()
+                ?: return@forEach
+            out.put(JSONObject().put("owner", owner).put("account", email)
+                .put("calendarId", "$account::${primary.first}").put("calendar", primary.second))
+        }
+        return out
     }
 }
