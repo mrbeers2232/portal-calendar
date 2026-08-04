@@ -111,8 +111,6 @@ class BoardController(private val baseCtx: Context) {
     private lateinit var detailTitle: TextView
     private lateinit var detailBody: TextView
     private lateinit var detailDeleteBtn: TextView
-    private lateinit var detailGroceryBtn: TextView
-    private var detailIngredients: String? = null
     private var detailEvent: EventInstance? = null
     private lateinit var dayOverlay: FrameLayout
     private lateinit var dayTitle: TextView
@@ -1609,11 +1607,9 @@ class BoardController(private val baseCtx: Context) {
             },
             onCelebrate = { anchor, goalReached -> celebrateAt(anchor, goalReached) })
         area.addView(choresTab.view, FrameLayout.LayoutParams(MATCH, MATCH))
-        mealsTab = MealsTab(ctx, { title, body, ingredients ->
+        mealsTab = MealsTab(ctx, { title, body ->
             detailTitle.text = title
             detailBody.text = body
-            detailIngredients = ingredients
-            detailGroceryBtn.visibility = if (ingredients.isNullOrBlank()) View.GONE else View.VISIBLE
             detailOverlay.visibility = View.VISIBLE
         }, onPlanMeal = { requirePin { showMealAiOverlay() } })
         area.addView(mealsTab.view, FrameLayout.LayoutParams(MATCH, MATCH))
@@ -2308,13 +2304,6 @@ class BoardController(private val baseCtx: Context) {
         detailDeleteBtn = navButton("🗑 Remove") { requirePin { deleteCurrentEvent() } }.apply {
             setTextColor(0xFFE0556A.toInt())
         }
-        detailGroceryBtn = navButton("🛒 Add ingredients") {
-            val ingredients = detailIngredients ?: return@navButton
-            runCatching { FamilyLists.addRecipeIngredients(ctx, ingredients) }
-            detailGroceryBtn.text = "✓ Added to Groceries"
-        }.apply { visibility = View.GONE; setTextColor(0xFF2BB3A3.toInt()) }
-        btnRow.addView(detailGroceryBtn)
-        btnRow.addView(spacer(dp(8)))
         btnRow.addView(detailDeleteBtn)
         btnRow.addView(spacer(dp(8)))
         btnRow.addView(navButton("Close") { detailOverlay.visibility = View.GONE })

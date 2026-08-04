@@ -57,59 +57,6 @@ object FamilyLists {
         return JSONObject().put("ok", true).put("operation", result).put("item", itemText).toString()
     }
 
-    /** Add recipe ingredients to the shared Groceries list, merging quantities instead of duplicating. */
-    fun addRecipeIngredients(ctx: Context, ingredients: String): String {
-        var added = 0; var merged = 0
-        Data.mutate(ctx, FILE) { arr ->
-            val list = (0 until arr.length()).map { arr.getJSONObject(it) }
-                .firstOrNull { it.optString("name").contains("grocer", true) || it.optString("name").contains("shopping", true) }
-                ?: JSONObject().put("id", UUID.randomUUID().toString()).put("name", "Groceries").put("items", JSONArray()).also { arr.put(it) }
-            val items = list.getJSONArray("items")
-            ingredients.lines().map { it.trim().trimStart('-', '•', '*', ' ') }.filter { it.isNotEmpty() }.forEach { raw ->
-                val parsed = IngredientLine.parse(raw)
-                val existing = (0 until items.length()).map { items.getJSONObject(it) }
-                    .firstOrNull { IngredientLine.sameBase(it.optString("text"), parsed.base) }
-                if (existing == null) { items.put(JSONObject().put("id", UUID.randomUUID().toString()).put("text", parsed.display).put("done", false)); added++ }
-                else {
-                    val combined = IngredientLine.combine(existing.optString("text"), parsed)
-                    if (combined != existing.optString("text")) { existing.put("text", combined); merged++ }
-                }
-            }
-        }
-        App.instance.notifyDataChanged(); App.instance.kickTasksSync()
-        return JSONObject().put("added", added).put("merged", merged).toString()
-    }
-
-    private data class IngredientLine(val base: String, val amount: Double?, val unit: String?, val count: Int?, val display: String) {
-        companion object {
-            private val paren = Regex("^(.+?)\\s*\\(([^)]+)\\)$")
-            private val countRx = Regex("^(.+?)\\s+x(\\d+)$", RegexOption.IGNORE_CASE)
-            private val leading = Regex("^(\\d+(?:\\.\\d+)?(?:\\s+(?:lb|lbs|oz|kg|g|cups?|tbsp|tsp|packets?|cans?|cloves?|pieces?|slices?))?)\\s+(.+)$", RegexOption.IGNORE_CASE)
-            fun parse(raw: String): IngredientLine {
-                paren.matchEntire(raw)?.let { return quantity(it.groupValues[1], it.groupValues[2]) }
-                countRx.matchEntire(raw)?.let { return IngredientLine(it.groupValues[1].trim(), null, null, it.groupValues[2].toInt(), raw) }
-                leading.matchEntire(raw)?.let { return quantity(it.groupValues[2], it.groupValues[1]) }
-                return IngredientLine(raw.trim(), null, null, null, raw.trim())
-            }
-            private fun quantity(base: String, amount: String): IngredientLine {
-                val m = Regex("^(\\d+(?:\\.\\d+)?)(?:\\s+(.+))?$").matchEntire(amount.trim())
-                val n = m?.groupValues?.get(1)?.toDoubleOrNull(); val unit = m?.groupValues?.get(2)?.trim()?.ifEmpty { null }
-                return IngredientLine(base.trim(), n, unit, null, "${base.trim()} (${amount.trim()})")
-            }
-            fun sameBase(existing: String, base: String): Boolean = parse(existing).base.equals(base, true)
-            fun combine(existingText: String, incoming: IngredientLine): String {
-                val old = parse(existingText)
-                if (old.count != null && incoming.count != null && old.base.equals(incoming.base, true)) return "${old.base} x${old.count + incoming.count}"
-                if (old.amount != null && incoming.amount != null && old.base.equals(incoming.base, true) && old.unit.equals(incoming.unit, true)) {
-                    val n = old.amount + incoming.amount
-                    val value = if (n % 1.0 == 0.0) n.toInt().toString() else "%.2f".format(java.util.Locale.US, n).trimEnd('0').trimEnd('.')
-                    return "${old.base}: ($value${old.unit?.let { " $it" } ?: ""})"
-                }
-                return existingText
-            }
-        }
-    }
-
     fun mutate(ctx: Context, action: JSONObject): String {
         val out = Data.mutate(ctx, FILE) { arr -> apply(arr, action); arr.toString() }
         FamilySync.pushIfSpoke(ctx, "lists", action.toString())

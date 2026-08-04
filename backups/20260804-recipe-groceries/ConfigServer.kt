@@ -139,8 +139,6 @@ class ConfigServer(
             json(Meals.statusJson(ctx))
         s.uri == "/api/meals" && s.method == Method.POST ->
             json(Meals.mutate(ctx, org.json.JSONObject(readBody(s))))
-        s.uri == "/api/recipe/groceries" && s.method == Method.POST ->
-            json(FamilyLists.addRecipeIngredients(ctx, org.json.JSONObject(readBody(s)).getString("ingredients")))
         s.uri == "/api/ai" && s.method == Method.GET ->
             json(Gemini.statusJson(ctx))
         s.uri == "/api/ai" && s.method == Method.POST -> {
