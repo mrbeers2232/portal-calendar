@@ -113,7 +113,6 @@ class BoardController(private val baseCtx: Context) {
     private lateinit var detailDeleteBtn: TextView
     private lateinit var detailGroceryBtn: TextView
     private var detailIngredients: String? = null
-    private var detailRecipeId: String? = null
     private var detailEvent: EventInstance? = null
     private lateinit var dayOverlay: FrameLayout
     private lateinit var dayTitle: TextView
@@ -1610,13 +1609,10 @@ class BoardController(private val baseCtx: Context) {
             },
             onCelebrate = { anchor, goalReached -> celebrateAt(anchor, goalReached) })
         area.addView(choresTab.view, FrameLayout.LayoutParams(MATCH, MATCH))
-        mealsTab = MealsTab(ctx, { title, body, ingredients, recipeId ->
+        mealsTab = MealsTab(ctx, { title, body, ingredients ->
             detailTitle.text = title
             detailBody.text = body
             detailIngredients = ingredients
-            detailRecipeId = recipeId
-            detailDeleteBtn.text = "🗑 Remove recipe"
-            detailDeleteBtn.visibility = if (recipeId != null) View.VISIBLE else View.GONE
             detailGroceryBtn.visibility = if (ingredients.isNullOrBlank()) View.GONE else View.VISIBLE
             detailOverlay.visibility = View.VISIBLE
         }, onPlanMeal = { requirePin { showMealAiOverlay() } })
@@ -2309,7 +2305,7 @@ class BoardController(private val baseCtx: Context) {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.END
         }
-        detailDeleteBtn = navButton("🗑 Remove") { requirePin { deleteDetailRecipeOrEvent() } }.apply {
+        detailDeleteBtn = navButton("🗑 Remove") { requirePin { deleteCurrentEvent() } }.apply {
             setTextColor(0xFFE0556A.toInt())
         }
         detailGroceryBtn = navButton("🛒 Add ingredients") {
@@ -2325,16 +2321,6 @@ class BoardController(private val baseCtx: Context) {
         card.addView(btnRow, lpMatchWrap(top = dp(14)))
         scrim.addView(card, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.CENTER))
         return scrim
-    }
-
-    private fun deleteDetailRecipeOrEvent() {
-        val recipeId = detailRecipeId
-        if (recipeId != null) {
-            runCatching { Meals.mutate(ctx, org.json.JSONObject().put("action", "deleteRecipe").put("recipeId", recipeId)) }
-            detailRecipeId = null
-            detailIngredients = null
-            detailOverlay.visibility = View.GONE
-        } else deleteCurrentEvent()
     }
 
     /** Deletes the event being viewed from its calendar (syncs back). */
@@ -2378,10 +2364,6 @@ class BoardController(private val baseCtx: Context) {
 
     private fun showDetails(ev: EventInstance) {
         detailEvent = ev
-        detailRecipeId = null
-        detailIngredients = null
-        detailDeleteBtn.text = "🗑 Remove"
-        detailGroceryBtn.visibility = View.GONE
         // Removable only when it carries a UID and an account that holds it is
         // connected for two-way sync — otherwise the delete couldn't propagate.
         val canDelete = ev.uid.isNotEmpty() &&

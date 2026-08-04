@@ -19,7 +19,7 @@ import kotlin.math.roundToInt
  */
 class MealsTab(
     private val ctx: Context,
-    private val showDetail: (title: String, body: String, ingredients: String?, recipeId: String?) -> Unit,
+    private val showDetail: (title: String, body: String, ingredients: String?) -> Unit,
     private val onPlanMeal: () -> Unit = {}
 ) {
 
@@ -154,10 +154,10 @@ class MealsTab(
                                         append(steps)
                                     }
                                     if (isEmpty()) append("No details yet — add them on the page")
-                                }, ing, entry.optString("recipeId").ifEmpty { null })
+                                }, ing)
                             } else {
                                 showDetail(entry.optString("text"),
-                                    "Planned for ${slot.replaceFirstChar { c -> c.uppercase() }}", null, null)
+                                    "Planned for ${slot.replaceFirstChar { c -> c.uppercase() }}", null)
                             }
                     }
                 }, LinearLayout.LayoutParams(0, WRAP, 1f))
