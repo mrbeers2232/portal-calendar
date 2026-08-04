@@ -108,6 +108,12 @@ class ListsTab(
             }
         }
         header.addView(clearDoneBtn)
+        header.addView(pill("Undo clear") {
+            selectedId?.let {
+                runCatching { FamilyLists.mutate(ctx, JSONObject().put("action", "undoClearDone").put("listId", it)) }
+            }
+            render()
+        })
         header.addView(pill("Delete list") {
             gate {
                 selectedId?.let {

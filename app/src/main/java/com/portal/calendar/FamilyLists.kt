@@ -12,6 +12,7 @@ import java.util.UUID
  */
 object FamilyLists {
     private const val FILE = "lists.json"
+    private const val UNDO_FILE = "lists-clear-undo.json"
 
     fun json(ctx: Context): String = Data.readArray(ctx, FILE).toString()
 
@@ -190,7 +191,25 @@ object FamilyLists {
     }
 
     fun mutate(ctx: Context, action: JSONObject): String {
-        val out = Data.mutate(ctx, FILE) { arr -> apply(arr, action); arr.toString() }
+        val out = Data.mutate(ctx, FILE) { arr ->
+            when (action.optString("action")) {
+                "clearDone" -> {
+                    val l = list(arr, action); val removed = JSONArray(); val items = l.getJSONArray("items")
+                    for (i in items.length() - 1 downTo 0) if (items.getJSONObject(i).optBoolean("done")) removed.put(items.getJSONObject(i))
+                    Data.writeRaw(ctx, UNDO_FILE, JSONObject().put("listId", l.optString("id")).put("items", removed).toString())
+                }
+                "undoClearDone" -> {
+                    val snap = Data.readObject(ctx, UNDO_FILE); val l = list(arr, action)
+                    if (snap.optString("listId") == l.optString("id")) {
+                        val saved = snap.optJSONArray("items") ?: JSONArray(); val items = l.getJSONArray("items")
+                        for (i in saved.length() - 1 downTo 0) items.put(saved.getJSONObject(i))
+                        Data.writeRaw(ctx, UNDO_FILE, JSONObject().toString())
+                    }
+                    return@mutate arr.toString()
+                }
+            }
+            apply(arr, action); arr.toString()
+        }
         FamilySync.pushIfSpoke(ctx, "lists", action.toString())
         App.instance.notifyDataChanged()
         App.instance.kickTasksSync()
