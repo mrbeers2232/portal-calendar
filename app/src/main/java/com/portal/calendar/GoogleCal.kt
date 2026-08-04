@@ -123,7 +123,7 @@ object GoogleCal {
         runCatching { JSONObject(prefs(ctx).getString("g_profile_${id.trim()}", null) ?: return null).optString("email").takeIf { it.isNotBlank() } }.getOrNull()
 
     fun accountForOwner(ctx: Context, owner: String): String? {
-        val q = owner.trim().lowercase().replace(Regex("[^a-z0-9]"), "")
+        val q = owner.trim().lowercase().replace(Regex("[^a-z0-9]"), "").removeSuffix("s")
         if (q.isEmpty()) return null
         val aliases = when (q) {
             "matt", "mathieu", "matthieu" -> setOf("matt", "mathieu", "mrbeers")
