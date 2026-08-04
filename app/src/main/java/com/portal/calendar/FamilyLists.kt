@@ -57,6 +57,27 @@ object FamilyLists {
         return JSONObject().put("ok", true).put("operation", result).put("item", itemText).toString()
     }
 
+    /** Adds an ordinary task to the single PortalHub-owned list with a member id. */
+    fun addOwnedTask(ctx: Context, owner: String, text: String): String {
+        val itemText = text.trim()
+        if (itemText.isEmpty()) throw IllegalArgumentException("the task is empty")
+        val normalized = owner.trim().lowercase()
+        val member = Members.all(ctx).firstOrNull {
+            it.name.lowercase() == normalized ||
+                (normalized == "matt" && it.name.equals("Mathieu", true))
+        } ?: throw IllegalArgumentException("unknown task owner: $owner")
+        val out = Data.mutate(ctx, FILE) { arr ->
+            val list = (0 until arr.length()).map { arr.getJSONObject(it) }
+                .firstOrNull { it.optString("name").equals("Tasks", true) && !it.optBoolean("archived") }
+                ?: JSONObject().put("id", UUID.randomUUID().toString()).put("name", "Tasks").put("items", JSONArray()).also { arr.put(it) }
+            list.getJSONArray("items").put(JSONObject().put("id", UUID.randomUUID().toString())
+                .put("text", itemText).put("done", false).put("ownerId", member.id))
+            arr.toString()
+        }
+        App.instance.notifyDataChanged(); App.instance.kickTasksSync()
+        return out
+    }
+
     /** Add recipe ingredients to the shared Groceries list, merging quantities instead of duplicating. */
     fun addRecipeIngredients(ctx: Context, ingredients: String): String {
         var added = 0; var merged = 0
@@ -196,13 +217,16 @@ object FamilyLists {
                 for (i in arr.length() - 1 downTo 0)
                     if (arr.getJSONObject(i).optString("id") == id) arr.remove(i)
             }
+            "archiveList" -> list(arr, action).put("archived", action.optBoolean("archived", true))
             "addItem" -> {
                 val text = action.getString("text").trim()
                 if (text.isEmpty()) throw IllegalArgumentException("the item is empty")
                 list(arr, action).getJSONArray("items").put(JSONObject()
                     .put("id", UUID.randomUUID().toString())
                     .put("text", text)
-                    .put("done", false))
+                    .put("done", false).apply {
+                        action.optString("ownerId").takeIf { it.isNotBlank() }?.let { put("ownerId", it) }
+                    })
             }
             "toggleItem" -> {
                 val item = item(arr, action)

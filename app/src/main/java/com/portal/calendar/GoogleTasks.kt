@@ -103,6 +103,7 @@ object GoogleTasks {
         val results = ArrayList<ListResult>()
         for (li in 0 until snapshot.length()) {
             val list = snapshot.getJSONObject(li)
+            if (list.optBoolean("archived", false)) continue
             val gid = list.optString("gtasksId")
             if (gid.isEmpty() || !enabledForList(ctx, list)) continue
             try {

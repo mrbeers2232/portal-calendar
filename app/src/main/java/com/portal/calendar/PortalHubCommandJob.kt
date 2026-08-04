@@ -40,7 +40,7 @@ class PortalHubCommandJob : JobService() {
                         val owner = taskRoute.groupValues[1].trim()
                         val d = MagicWords.parseLoose(this, taskRoute.groupValues[2].trim())
                         if (d.kind == "groceries") MagicWords.execute(this, d, System.currentTimeMillis())
-                        else MagicWords.addToList(this, "$owner Tasks", d.payload)
+                        else FamilyLists.addOwnedTask(this, owner, d.payload)
                     } else if (Gemini.isReady(this)) {
                         Gemini.applyProposals(this, org.json.JSONObject(
                             Gemini.smartImport(this, command, null, null),
