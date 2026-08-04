@@ -287,8 +287,8 @@
           </select>
         </div>
       </div>
-      <label for="evCal">Calendar</label>
-      <select id="evCal" onchange="pickTarget()"></select>
+      <label for="evOwner">Whose calendar?</label>
+      <select id="evOwner"><option value="">Choose an owner</option></select>
       <button style="width:100%;" onclick="addEvent()">Add to calendar</button>
       <div id="evMsg" class="msgline"></div>
     </div>
@@ -889,16 +889,13 @@ function applyWriters(st){
   if (st.google.connected) document.getElementById('gWho').textContent = st.google.email || 'Google account';
   loadGoogleProfiles();
 
-  const any = st.calendars.length > 0;
+  const owners = st.ownerTargets || [];
+  const any = owners.length > 0;
   document.getElementById('eventOff').style.display = any ? 'none' : 'block';
   document.getElementById('eventForm').style.display = any ? 'block' : 'none';
   if (any) {
-    const sel = document.getElementById('evCal');
-    sel.innerHTML = st.calendars.map(c => {
-      const v = c.kind + '|' + c.id;
-      const cur = st.target && st.target.kind === c.kind && st.target.id === c.id;
-      return `<option value="${esc(v)}"${cur ? ' selected' : ''}>${esc(c.name)}</option>`;
-    }).join('');
+    document.getElementById('evOwner').innerHTML = '<option value="">Choose an owner</option>' +
+      owners.map(o => `<option value="${esc(o.owner)}">${esc(o.owner)} — ${esc(o.account)}</option>`).join('');
     const d = document.getElementById('evDate');
     if (!d.value) {
       const now = new Date();
@@ -987,18 +984,6 @@ async function disconnectGoogle(){
   loadWriters();
 }
 
-async function pickTarget(){
-  const v = document.getElementById('evCal').value;
-  const i = v.indexOf('|');
-  try {
-    const r = await fetch('/api/target', {method:'POST',
-      body: JSON.stringify({kind: v.slice(0, i), id: v.slice(i + 1)})});
-    const body = await r.json();
-    if (!r.ok) throw new Error(body.error || 'failed');
-    applyWriters(body);
-  } catch(e){ show('evMsg', e.message, false); }
-}
-
 function toggleAllDay(){
   document.getElementById('evTimeRow').style.display =
     document.getElementById('evAllDay').checked ? 'none' : 'flex';
@@ -1010,12 +995,14 @@ async function addEvent(){
   const allDay = document.getElementById('evAllDay').checked;
   const time = document.getElementById('evTime').value || '12:00';
   const durationMins = parseInt(document.getElementById('evDur').value, 10);
+  const calendarOwner = document.getElementById('evOwner').value;
   if (!title) return show('evMsg', 'Give the event a name', false);
   if (!date) return show('evMsg', 'Pick a date', false);
+  if (!calendarOwner) return show('evMsg', 'Choose whose calendar this belongs to', false);
   show('evMsg', 'Adding to the calendar…', true);
   try {
     const r = await fetch('/api/event', {method:'POST',
-      body: JSON.stringify({title, date, time, durationMins, allDay})});
+      body: JSON.stringify({title, date, time, durationMins, allDay, calendarOwner})});
     const body = await r.json();
     if (!r.ok) throw new Error(body.error || 'failed');
     document.getElementById('evTitle').value = '';

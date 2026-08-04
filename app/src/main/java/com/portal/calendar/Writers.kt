@@ -58,7 +58,8 @@ object Writers {
         if (calendars(ctx).none { it.kind == kind && it.id == id })
             throw IllegalArgumentException("unknown calendar")
         prefs(ctx).edit().putString("write_target",
-            JSONObject().put("kind", kind).put("id", id).toString()).apply()
+            JSONObject().put("kind", kind).put("id", id).toString())
+            .putBoolean("write_target_explicit", true).apply()
     }
 
     fun setTargetByName(ctx: Context, requested: String): Boolean {
@@ -93,12 +94,18 @@ object Writers {
         setTarget(ctx, "google", id); return true
     }
 
-    /** Keeps the target valid as accounts connect/disconnect. */
+    /** Keeps an explicitly selected target valid; never invents a default. */
     fun ensureDefault(ctx: Context) {
-        if (target(ctx) != null) return
-        val first = calendars(ctx).firstOrNull()
-        if (first != null) setTarget(ctx, first.kind, first.id)
-        else prefs(ctx).edit().remove("write_target").apply()
+        val p = prefs(ctx)
+        if (!p.getBoolean("write_target_owner_policy_v1", false)) {
+            // Clear targets created by the old first-calendar defaulting logic.
+            p.edit().remove("write_target").putBoolean("write_target_owner_policy_v1", true).apply()
+            return
+        }
+        if (!p.getBoolean("write_target_explicit", false))
+            p.edit().remove("write_target").apply()
+        else if (target(ctx) == null)
+            p.edit().remove("write_target").apply()
     }
 
     fun addEvent(ctx: Context, title: String, start: Long, end: Long, allDay: Boolean) {
@@ -125,6 +132,7 @@ object Writers {
     }
 
     fun statusJson(ctx: Context): String {
+        ensureDefault(ctx)
         val cals = JSONArray()
         calendars(ctx).forEach {
             cals.put(JSONObject().put("kind", it.kind).put("id", it.id).put("name", it.name))

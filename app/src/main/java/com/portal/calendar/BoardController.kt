@@ -2193,10 +2193,9 @@ class BoardController(private val baseCtx: Context) {
         addBusy = false
         addTitleInput.setText("")
         addMsg.text = ""
-        val target = Writers.target(ctx)
-        addCalIndex = Writers.calendars(ctx).indexOfFirst {
-            target != null && it.kind == target.kind && it.id == target.id
-        }.coerceAtLeast(0)
+        // Never silently inherit a calendar. The user must choose one for
+        // each event, matching Jarvis's owner-required behavior.
+        addCalIndex = -1
         refreshAddLabels()
         addOverlay.visibility = View.VISIBLE
         addTitleInput.requestFocus()
@@ -2224,7 +2223,7 @@ class BoardController(private val baseCtx: Context) {
             addCalButton.text = "none connected"
             addMsg.text = "Connect iCloud or Google on the setup page (⚙) first"
         } else {
-            addCalButton.text = cals[addCalIndex.coerceIn(cals.indices)].name
+            addCalButton.text = if (addCalIndex in cals.indices) cals[addCalIndex].name else "Choose calendar owner"
         }
     }
 
@@ -2234,7 +2233,11 @@ class BoardController(private val baseCtx: Context) {
         if (title.isEmpty()) { addMsg.text = "Give it a name"; return }
         val cals = Writers.calendars(ctx)
         if (cals.isEmpty()) { addMsg.text = "Connect iCloud or Google on the setup page (⚙) first"; return }
-        val cal = cals[addCalIndex.coerceIn(cals.indices)]
+        if (addCalIndex !in cals.indices) {
+            addMsg.text = "Choose the calendar owner's calendar first"
+            return
+        }
+        val cal = cals[addCalIndex]
 
         val startCal = addDate.clone() as Calendar
         val start: Long

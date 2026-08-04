@@ -272,6 +272,10 @@ class ConfigServer(
             val o = org.json.JSONObject(readBody(s))
             val title = o.getString("title").trim()
             if (title.isEmpty()) throw IllegalArgumentException("the event needs a title")
+            val owner = o.optString("calendarOwner").trim()
+            if (owner.isEmpty()) throw IllegalArgumentException("choose whose calendar this belongs to")
+            if (!Writers.setTargetForOwner(ctx, owner))
+                throw IllegalArgumentException("no connected writable calendar is configured for $owner")
             val allDay = o.optBoolean("allDay", false)
             // optString turns a JSON null into the string "null" — normalize.
             val time = o.optString("time").takeIf { it.isNotEmpty() && it != "null" }
