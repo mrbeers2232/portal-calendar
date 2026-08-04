@@ -172,8 +172,9 @@ class ListsTab(
             val items = l.getJSONArray("items")
             val open = (0 until items.length()).count { !items.getJSONObject(it).optBoolean("done") }
             val selected = id == selectedId
+            val listOwner = Members.byId(ctx, l.optString("ownerId"))
             rail.addView(TextView(ctx).apply {
-                text = l.optString("name") + if (open > 0) "   $open" else ""
+                text = l.optString("name") + (if (open > 0) "   $open" else "") + (listOwner?.let { "   • ${it.name}" } ?: "")
                 textSize = 16f
                 setTextColor(if (selected) Color.WHITE else INK)
                 typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
@@ -258,6 +259,8 @@ class ListsTab(
                         textSize = 11f
                         setTextColor(Color.WHITE)
                         gravity = Gravity.CENTER
+                        setLayerType(View.LAYER_TYPE_SOFTWARE, null)
+                        paint.setShadowLayer(dp(2).toFloat(), 0f, 0f, Color.BLACK)
                         background = rounded(owner.color, 10)
                         setPadding(dp(8), dp(3), dp(8), dp(3))
                     }, LinearLayout.LayoutParams(WRAP, dp(26)).apply { leftMargin = dp(6) })
