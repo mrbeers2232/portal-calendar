@@ -115,9 +115,7 @@ object MagicWords {
             "groceries" -> addToList(ctx, "Groceries", d.payload)
             "list" -> addToList(ctx, d.listName ?: "To-Do", d.payload)
             "event" -> {
-                val date = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(eventStartMillis))
-                val (start, end) = CalDav.eventWindow(date, null, 60, true)
-                Writers.addEvent(ctx, d.payload, start, end, true)
+                throw IllegalArgumentException("ask whose calendar to use before adding this event")
             }
             "chore" -> {
                 var title = d.payload

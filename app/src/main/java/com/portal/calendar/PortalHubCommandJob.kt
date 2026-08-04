@@ -4,6 +4,9 @@ import android.app.job.JobParameters
 import android.app.job.JobService
 import android.content.Context
 import org.json.JSONArray
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /** Runs queued Jarvis commands outside the provider's short synchronous timeout. */
 class PortalHubCommandJob : JobService() {
@@ -27,7 +30,11 @@ class PortalHubCommandJob : JobService() {
                             Gemini.applyProposals(this, proposal)
                         } else {
                             if (!Writers.setTargetForOwner(this, owner)) throw IllegalArgumentException("no connected calendar for $owner")
-                            MagicWords.execute(this, MagicWords.parseLoose(this, calendarRoute.groupValues[2].trim()), System.currentTimeMillis())
+                            val directive = MagicWords.parseLoose(this, calendarRoute.groupValues[2].trim())
+                            if (directive.kind != "event") throw IllegalArgumentException("that command did not contain a calendar event")
+                            val date = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+                            val (start, end) = CalDav.eventWindow(date, null, 60, true)
+                            Writers.addEvent(this, directive.payload, start, end, true)
                         }
                     } else if (taskRoute != null) {
                         val owner = taskRoute.groupValues[1].trim()

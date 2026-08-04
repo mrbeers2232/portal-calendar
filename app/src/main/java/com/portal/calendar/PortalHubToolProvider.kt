@@ -53,7 +53,9 @@ class PortalHubToolProvider : ContentProvider() {
                 .build(),
         ) == JobScheduler.RESULT_SUCCESS
         return if (scheduled) {
-            result(true, "PortalHub queued the command; do not report success until the requested owner's write is confirmed.")
+            // The JobService runs asynchronously, so a synchronous success
+            // would falsely tell Jarvis that the write already happened.
+            result(false, "PortalHub queued the command for verification; do not report it as completed yet.")
         } else {
             result(false, "PortalHub could not schedule that command.")
         }
