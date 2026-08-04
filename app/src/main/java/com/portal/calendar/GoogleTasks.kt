@@ -57,6 +57,9 @@ object GoogleTasks {
         if (!GoogleCal.isConnected(ctx))
             throw IllegalArgumentException("connect Google first (Settings → Two-way sync)")
         val name = find(Data.readArray(ctx, FILE), listId).optString("name")
+        val groceries = name.trim().lowercase().let { it.contains("grocer") || it.contains("shopping") }
+        val before = GoogleCal.currentAccountId(ctx)
+        if (groceries) GoogleCal.sharedAccountId(ctx)?.let { GoogleCal.activate(ctx, it) }
         val existing = taskLists(ctx).firstOrNull { it.second.equals(name, true) }
         val gid = existing?.first ?: run {
             val resp = call(ctx, "POST", "$API/users/@me/lists",
@@ -66,9 +69,10 @@ object GoogleTasks {
         Data.mutate(ctx, FILE) { lists ->
             findOrNull(lists, listId)?.apply {
                 put("gtasksId", gid)
-                GoogleCal.currentAccountId(ctx)?.let { put("gtasksAccount", it) }
+                (if (groceries) GoogleCal.sharedAccountId(ctx) else GoogleCal.currentAccountId(ctx))?.let { put("gtasksAccount", it) }
             }
         }
+        before?.let { GoogleCal.activate(ctx, it) }
         syncAll(ctx)
     }
 
@@ -102,7 +106,9 @@ object GoogleTasks {
             val gid = list.optString("gtasksId")
             if (gid.isEmpty() || !enabledForList(ctx, list)) continue
             try {
-                list.optString("gtasksAccount").takeIf { it.isNotBlank() }?.let {
+                val groceries = list.optString("name").trim().lowercase().let { it.contains("grocer") || it.contains("shopping") }
+                val account = if (groceries) GoogleCal.sharedAccountId(ctx) else list.optString("gtasksAccount").takeIf { it.isNotBlank() }
+                account?.let {
                     if (!GoogleCal.activate(ctx, it)) throw IllegalArgumentException("Google account profile is unavailable for this list")
                 }
                 results.add(syncList(ctx, list, gid))

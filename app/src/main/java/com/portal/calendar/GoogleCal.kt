@@ -124,6 +124,17 @@ object GoogleCal {
 
     fun currentAccountId(ctx: Context): String? = email(ctx)?.let(::accountId)
 
+    /** Groceries are one shared list; prefer Matt's profile as the hub owner. */
+    fun sharedAccountId(ctx: Context): String? {
+        val all = accountsJson(ctx)
+        for (i in 0 until all.length()) {
+            val o = all.getJSONObject(i)
+            val email = o.optString("email").lowercase()
+            if (email.contains("mrbeers") || email.contains("matt")) return o.optString("id")
+        }
+        return currentAccountId(ctx)
+    }
+
     fun accountForOwner(ctx: Context, owner: String): String? {
         val q = owner.trim().lowercase().replace(Regex("[^a-z0-9]"), "").removeSuffix("s")
         if (q.isEmpty()) return null
