@@ -1,6 +1,7 @@
 package com.portal.calendar
 
 import android.content.Context
+import android.os.StatFs
 import fi.iki.elonen.NanoHTTPD
 
 /**
@@ -47,6 +48,8 @@ class ConfigServer(
             val html = ctx.assets.open("history.html").bufferedReader().readText()
             newFixedLengthResponse(Response.Status.OK, "text/html", html)
         }
+        s.uri == "/api/health" && s.method == Method.GET ->
+            json(healthJson())
         s.uri == "/api/config" && s.method == Method.GET ->
             json(store.feedsJson())
         s.uri == "/api/config" && s.method == Method.POST -> {
@@ -401,6 +404,32 @@ class ConfigServer(
 
     private fun json(body: String) =
         newFixedLengthResponse(Response.Status.OK, "application/json", body)
+
+    /** Non-secret diagnostics suitable for the local health page. */
+    private fun healthJson(): String {
+        val files = StatFs(ctx.filesDir.absolutePath)
+        val total = files.totalBytes.coerceAtLeast(0L)
+        val free = files.availableBytes.coerceAtLeast(0L)
+        val version = runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0) }
+        return org.json.JSONObject()
+            .put("portalHub", org.json.JSONObject()
+                .put("ok", true)
+                .put("version", version.getOrNull()?.versionName ?: "unknown")
+                .put("versionCode", version.getOrNull()?.longVersionCode ?: 0L))
+            .put("storage", org.json.JSONObject()
+                .put("freeBytes", free)
+                .put("totalBytes", total)
+                .put("freePercent", if (total > 0) (free * 100.0 / total) else 0.0))
+            .put("gotify", Gotify.configured(ctx))
+            .put("googleCalendar", GoogleCal.isConnected(ctx))
+            .put("googleAccounts", GoogleCal.accountsJson(ctx).length())
+            .put("tailscaleInstalled", runCatching {
+                ctx.packageManager.getApplicationInfo("com.tailscale.ipn", 0)
+                true
+            }.getOrDefault(false))
+            .put("adbWireless", "Android 9 requires system/root control; app cannot enable it")
+            .toString()
+    }
 
     // org.json handles control characters too (raw \n in an error message
     // would otherwise produce an unparsable error response).

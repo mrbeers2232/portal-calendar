@@ -112,6 +112,15 @@
     <button data-tabbtn="meals" class="ghost" onclick="showTab('meals')" style="flex:1;">Meals</button>
     <button data-tabbtn="family" class="ghost" onclick="showTab('family')" style="flex:1;">Family</button>
     <button data-tabbtn="settings" class="ghost" onclick="showTab('settings')" style="flex:1;">Settings</button>
+    <button data-tabbtn="health" class="ghost" onclick="showTab('health')" style="flex:1;">Health</button>
+  </div>
+
+  <div class="card" data-tab="health">
+    <strong>System Health</strong>
+    <div style="font-size:13px;color:#737983;margin:6px 0 12px;">Safe diagnostics for PortalHub and the services it depends on. Secrets are never shown.</div>
+    <div id="healthBox" style="display:grid;gap:8px;"></div>
+    <div class="btnrow" style="margin-top:12px;"><button onclick="loadHealth()">Refresh health</button></div>
+    <div id="healthMsg" class="msgline"></div>
   </div>
 
   <div class="card" data-tab="chores">
@@ -1060,6 +1069,29 @@ function showTab(name){
   if (name === 'chores') { loadChores(); loadHistory(); }
   if (name === 'routines') loadRoutines();
   if (name === 'meals') loadMeals();
+  if (name === 'health') loadHealth();
+}
+
+function healthRow(label, value, ok=true){
+  const color = ok ? '#2f9e44' : '#d94841';
+  return `<div style="display:flex;justify-content:space-between;gap:12px;align-items:center;border:1px solid #e7e2d8;border-radius:10px;padding:10px 12px;">
+    <span>${esc(label)}</span><strong style="color:${color};text-align:right;">${esc(String(value))}</strong></div>`;
+}
+async function loadHealth(){
+  try {
+    const h = await (await fetch('/api/health')).json();
+    const s = h.storage || {};
+    const pct = Number(s.freePercent || 0).toFixed(1) + '% free';
+    document.getElementById('healthBox').innerHTML = [
+      healthRow('PortalHub', `${h.portalHub?.version || 'unknown'} (${h.portalHub?.versionCode || '?'})`),
+      healthRow('Storage', `${pct} · ${Math.round((s.freeBytes || 0)/1048576)} MB free`, Number(s.freePercent || 0) > 5),
+      healthRow('Google Calendar', h.googleCalendar ? `Connected · ${h.googleAccounts || 1} account(s)` : 'Not connected', !!h.googleCalendar),
+      healthRow('Gotify', h.gotify ? 'Configured' : 'Not configured', !!h.gotify),
+      healthRow('Tailscale app', h.tailscaleInstalled ? 'Installed' : 'Not detected', !!h.tailscaleInstalled),
+      healthRow('Wireless ADB', h.adbWireless, true)
+    ].join('');
+    show('healthMsg', '✓ Health refreshed', true);
+  } catch(e) { show('healthMsg', e.message, false); }
 }
 
 // ----- shared lists -----
