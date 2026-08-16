@@ -50,6 +50,20 @@ class ConfigServer(
         }
         s.uri == "/api/health" && s.method == Method.GET ->
             json(healthJson())
+        s.uri == "/api/health/action" && s.method == Method.POST -> {
+            when (org.json.JSONObject(readBody(s)).optString("action")) {
+                "sync" -> {
+                    App.instance.kickTasksSync(0)
+                    App.instance.notifyConfigChanged()
+                    json("{\"ok\":true,\"message\":\"Sync requested\"}")
+                }
+                "reassert" -> {
+                    App.instance.assertBoard()
+                    json("{\"ok\":true,\"message\":\"PortalHub brought to the foreground\"}")
+                }
+                else -> throw IllegalArgumentException("unknown health action")
+            }
+        }
         s.uri == "/api/config" && s.method == Method.GET ->
             json(store.feedsJson())
         s.uri == "/api/config" && s.method == Method.POST -> {
