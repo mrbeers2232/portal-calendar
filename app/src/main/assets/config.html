@@ -1464,7 +1464,8 @@ function renderMeals(){
         <div style="display:flex;align-items:center;gap:8px;margin-top:4px;">
           <span style="width:26px;text-align:center;">${emoji}</span>
           <input type="text" value="${esc(mealText(date, slot))}" list="recipeNames" autocomplete="off"
-                 placeholder="${slot}" style="margin:0;padding:8px 12px;flex:1;">
+                 placeholder="${slot}" style="margin:0;padding:8px 12px;flex:1;"
+                 onchange="setMeal('${date}','${slot}',this.value)">
           <button type="button" class="del" title="Remove ${slot}" aria-label="Remove ${slot}"
                   onclick="event.preventDefault();event.stopPropagation();clearMeal('${date}','${slot}')">✕</button>
         </div>`).join('')}
